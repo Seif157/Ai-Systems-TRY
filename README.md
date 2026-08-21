@@ -6,9 +6,10 @@ The platform uses one shared AI core and a separate capability package for each 
 
 > **Current status:** architecture, trusted request context, capability registry, and the
 > read-only typed tool execution gateway are implemented as in-memory contracts. The first HR Core
-> production contract, `get_my_employee_profile`, now proves the complete authorized execution
-> path through a provider Protocol and safe output model. No real ERP provider, AI, RAG, or external
-> integration exists yet. The first broader production slice remains **HR Core + Leave**.
+> production contracts, `get_my_employee_profile` and `get_my_leave_balances`, now prove complete
+> authorized execution paths through provider Protocols and safe output models. No real ERP
+> provider, AI, RAG, or external integration exists yet. The first broader production slice
+> remains **HR Core + Leave**.
 
 ## Contents
 
@@ -76,9 +77,10 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 | Capability registry | Implemented | Immutable governed manifests; module, permission, role, purpose, and read-only filtering |
 | Read-tool gateway | Implemented | Reauthorization, audit-free public results, mandatory fail-closed audit delivery |
 | HR Core self profile | Implemented contract | Linked-employee self-service authorization, schema-aligned safe output, ownership checks, and audit metadata; no real ERP adapter |
+| Leave balances | Implemented contract | ERP-calculated Decimal balances, dual-module entitlement, ownership/scope checks, safe output, and audit metadata; no real ERP adapter |
 | HR database and AI contract | Documented; integration blocked | HR schema documentation exists; an authoritative typed ERP API contract and owner-confirmed module mapping are still required |
 | AI gateway and orchestrator | Planned | Implement before module expansion |
-| Remaining HR Core + Leave read tools | Next | First end-to-end release |
+| Remaining HR Core + Leave read tools | Next | Requests and additional first-release reads |
 | HR policy RAG | Next | Approved documents only |
 | HR write command | Planned | Leave request with preview, confirmation, and idempotency |
 | Additional ERP capabilities | Planned | Added independently after the first vertical slice passes security gates |

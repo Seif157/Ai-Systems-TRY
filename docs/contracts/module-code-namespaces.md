@@ -8,9 +8,18 @@ The current contracts use three distinct identifiers that happen to describe the
 | Canonical AI entitlement code | `hr_core` | Value injected into `TrustedRequestContext.enabled_modules` |
 | RAG document namespace | `hr` | Metadata namespace for approved HR knowledge documents |
 
+For Leave, the corresponding namespaces are:
+
+| Namespace | Current value | Purpose |
+|---|---|---|
+| AI capability code | `leave` | Identifies the immutable Leave capability manifest |
+| Canonical AI entitlement code | `leave` | Value injected into `TrustedRequestContext.enabled_modules` |
+| RAG document namespace | `hr` | Shared approved HR knowledge-document namespace |
+| RAG subdomain | `leave` | Narrows approved HR documents to Leave |
+
 These values belong to different namespaces and must not be compared, joined, or translated
-automatically. In particular, the RAG namespace `hr` is not proof that the `hr_core` AI
-entitlement is enabled.
+automatically. In particular, the RAG namespace `hr` and subdomain `leave` are not proof that
+either the `hr_core` or `leave` AI entitlement is enabled.
 
 The database defines `erp_module_installations.module_code` but does not provide its canonical
 production values. A future trusted entitlement resolver must map raw ERP installation codes to
