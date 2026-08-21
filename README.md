@@ -4,7 +4,9 @@ A modular, entitlement-aware AI layer for an ERP product.
 
 The platform uses one shared AI core and a separate capability package for each ERP domain. Every customer receives only the capabilities licensed and enabled in their ERP installation. The AI never decides access by itself: customer context, module entitlements, roles, and data scope are resolved and enforced by trusted application services before any retrieval or tool call.
 
-> **Current status:** architecture and contracts are defined; implementation is in progress. The first production vertical slice is **HR Core + Leave**.
+> **Current status:** architecture is defined and the trusted request-context contract is
+> implemented. ERP, HR, AI, RAG, and tool integrations remain planned. The first production
+> vertical slice is **HR Core + Leave**.
 
 ## Contents
 
@@ -68,7 +70,8 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 |---|---|---|
 | Platform architecture | Defined | Shared core plus entitlement-aware capabilities |
 | Customer isolation model | Defined | One PostgreSQL database and isolated AI resources per customer |
-| HR database and AI contract | Ready | Source contract for the first vertical slice |
+| Trusted request context | Implemented | Strict server-owned context and public request boundary |
+| HR database and AI contract | Blocked | Authoritative HR schema and ERP API contract are not in this repository |
 | AI gateway and orchestrator | Planned | Implement before module expansion |
 | HR Core + Leave read tools | Next | First end-to-end release |
 | HR policy RAG | Next | Approved documents only |
@@ -511,7 +514,22 @@ Customer-specific database credentials, encryption material, API credentials, an
 
 ## Local development
 
-The commands below define the expected developer experience once the bootstrap files are implemented; adjust them to match the repository rather than documenting commands that do not exist.
+The current foundation uses Python 3.12 and `uv`:
+
+```bash
+uv sync --locked --dev --python 3.12
+uv run ruff format --check .
+uv run ruff check .
+uv run pytest
+```
+
+These commands validate the trusted request-context slice and run in CI. No database, ERP,
+model, vector store, or external service is required.
+
+### Planned developer experience
+
+The commands below describe the planned broader developer experience. They are not implemented
+yet and must not be presented as working commands until their supporting services exist.
 
 ```bash
 cp .env.example .env
