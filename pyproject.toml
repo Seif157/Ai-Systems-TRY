@@ -6,10 +6,12 @@ readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
     "pydantic>=2.12.5,<3",
+    "tzdata>=2025.3",
 ]
 
 [dependency-groups]
 dev = [
+    "mypy>=1.19.1,<2",
     "pytest>=9.0.2,<10",
     "pytest-cov>=7.0.0,<8",
     "ruff>=0.14.14,<0.15",
@@ -33,3 +35,8 @@ target-version = "py312"
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 
+[tool.mypy]
+python_version = "3.12"
+strict = true
+files = ["src"]
+warn_unreachable = true

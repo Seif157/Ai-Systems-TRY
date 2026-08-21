@@ -1,5 +1,5 @@
 """Public API contracts."""
 
-from erp_ai.api.models import ChatRequest
+from erp_ai.api.models import PublicChatRequest
 
-__all__ = ["ChatRequest"]
+__all__ = ["PublicChatRequest"]

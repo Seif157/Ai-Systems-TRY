@@ -7,13 +7,13 @@ from erp_ai.context.models import TrustedRequestContext
 
 
 @runtime_checkable
-class TrustedContextSource(Protocol):
+class TrustedContextProvider(Protocol):
     """Adapter implemented by a trusted authentication/context integration."""
 
     def load_context(self) -> Mapping[str, object]: ...
 
 
-def resolve_trusted_context(source: TrustedContextSource) -> TrustedRequestContext:
+def resolve_trusted_context(provider: TrustedContextProvider) -> TrustedRequestContext:
     """Validate and freeze claims loaded from a trusted server-side adapter."""
 
-    return TrustedRequestContext.model_validate(dict(source.load_context()), strict=True)
+    return TrustedRequestContext.model_validate(dict(provider.load_context()), strict=True)

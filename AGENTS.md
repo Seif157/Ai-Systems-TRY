@@ -19,8 +19,7 @@ authorization, and transactional data remain behind typed ERP application APIs.
 ## Development
 
 - Use Python 3.12 or newer within the range declared in `pyproject.toml`.
-- Run `uv sync --locked --dev`, `uv run ruff format --check .`, `uv run ruff check .`, and
-  `uv run pytest` before handing off changes.
+- Run `uv sync --locked --dev --python 3.12`, `uv run pytest`, `uv run ruff check .`,
+  `uv run ruff format --check .`, and `uv run mypy src` before handing off changes.
 - Keep public contracts strict: reject unknown fields and add negative authorization tests.
 - Do not add empty capability directories; create a capability only with its implementation.
-
