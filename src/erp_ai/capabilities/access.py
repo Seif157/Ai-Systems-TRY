@@ -13,6 +13,7 @@ type DenialReason = Literal[
     "required_permission_missing",
     "required_role_missing",
     "purpose_not_allowed",
+    "employee_context_required",
     "command_disabled_read_only",
 ]
 
@@ -94,6 +95,8 @@ def evaluate_capability_access(
             reason: DenialReason
             if read_only_mode and tool.operation == "command":
                 reason = "command_disabled_read_only"
+            elif tool.requires_employee_context and context.employee_id is None:
+                reason = "employee_context_required"
             elif not set(tool.required_permissions_all).issubset(permissions):
                 reason = "required_permission_missing"
             elif tool.required_roles_any and roles.isdisjoint(tool.required_roles_any):

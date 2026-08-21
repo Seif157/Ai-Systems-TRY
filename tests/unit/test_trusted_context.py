@@ -66,7 +66,7 @@ def test_rejects_blank_identifier(field: str, valid_claims: dict[str, object]) -
     ("field", "value"),
     [
         ("roles", ["employee", " Employee "]),
-        ("permission_codes", ["leave_read", " LEAVE_READ "]),
+        ("permission_codes", ["leave_read", "leave_read"]),
         ("enabled_modules", ["leave", "LEAVE"]),
         ("legal_entity_ids", ["entity-a", " entity-a "]),
     ],

@@ -33,10 +33,10 @@ def manifest_payload(**overrides: object) -> dict[str, object]:
 def test_models_normalize_and_freeze_collections() -> None:
     tool = ToolDescriptor.model_validate(
         tool_payload(
-            required_permissions_all=["PROFILE_READ", "employee_read"],
+            required_permissions_all=["profile_read", "employee_read"],
             required_roles_any=["Manager", "employee"],
             allowed_purposes=["Manager_Self_Service", "employee_self_service"],
-            audit_action=" PROFILE_VIEWED ",
+            audit_action="profile_viewed",
         ),
         strict=True,
     )
@@ -57,7 +57,7 @@ def test_models_normalize_and_freeze_collections() -> None:
     [
         ("tool_name", ""),
         ("tool_name", "invalid-tool"),
-        ("required_permissions_all", ["leave_read", " LEAVE_READ "]),
+        ("required_permissions_all", ["leave_read", "leave_read"]),
         ("required_roles_any", ["employee", "EMPLOYEE"]),
         ("allowed_purposes", ["employee_self_service", " EMPLOYEE_SELF_SERVICE "]),
         ("audit_action", ""),
@@ -76,6 +76,63 @@ def test_tool_rejects_invalid_or_duplicate_codes(field: str, value: object) -> N
 def test_manifest_rejects_invalid_or_duplicate_module_codes(modules: list[str]) -> None:
     with pytest.raises(ValidationError):
         CapabilityManifest.model_validate(manifest_payload(required_modules=modules), strict=True)
+
+
+@pytest.mark.parametrize("policy_code", ["hr.profile.read_self", "leave.balance.read_self"])
+def test_dotted_permission_and_audit_codes_are_scoped_to_policy_fields(
+    policy_code: str,
+) -> None:
+    tool = ToolDescriptor.model_validate(
+        tool_payload(
+            required_permissions_all=[policy_code],
+            audit_action=policy_code,
+        ),
+        strict=True,
+    )
+
+    assert tool.required_permissions_all == (policy_code,)
+    assert tool.audit_action == policy_code
+
+
+def test_permission_collection_rejects_non_collection_input() -> None:
+    with pytest.raises(ValidationError):
+        ToolDescriptor.model_validate(
+            tool_payload(required_permissions_all="hr.profile.read_self"), strict=True
+        )
+
+
+@pytest.mark.parametrize(
+    "permission",
+    [".hr.profile", "hr.profile.", "hr..profile", "hr. profile", "HR.profile", " hr.profile"],
+)
+@pytest.mark.parametrize("field", ["required_permissions_all", "audit_action"])
+def test_rejects_noncanonical_dotted_policy_codes(field: str, permission: str) -> None:
+    value: object = [permission] if field == "required_permissions_all" else permission
+    with pytest.raises(ValidationError):
+        ToolDescriptor.model_validate(tool_payload(**{field: value}), strict=True)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("required_roles_any", ["hr.manager"]),
+        ("allowed_purposes", ["employee.self_service"]),
+    ],
+)
+def test_dotted_codes_are_rejected_from_role_and_purpose_fields(
+    field: str, value: list[str]
+) -> None:
+    with pytest.raises(ValidationError):
+        ToolDescriptor.model_validate(tool_payload(**{field: value}), strict=True)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("capability_code", "hr.core"), ("required_modules", ["hr.core"])],
+)
+def test_dotted_codes_are_rejected_from_manifest_namespaces(field: str, value: object) -> None:
+    with pytest.raises(ValidationError):
+        CapabilityManifest.model_validate(manifest_payload(**{field: value}), strict=True)
 
 
 def test_manifest_rejects_duplicate_tools() -> None:

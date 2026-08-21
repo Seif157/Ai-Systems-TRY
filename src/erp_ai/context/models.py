@@ -15,6 +15,7 @@ from pydantic import (
 )
 
 _CODE_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+_POLICY_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$")
 _LOCALE_PATTERN = re.compile(r"^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$")
 
 
@@ -32,6 +33,10 @@ Code = Annotated[
     BeforeValidator(lambda value: value.strip().lower() if isinstance(value, str) else value),
     StringConstraints(strict=True, pattern=_CODE_PATTERN),
 ]
+PolicyCode = Annotated[
+    str,
+    StringConstraints(strict=True, pattern=_POLICY_CODE_PATTERN),
+]
 
 
 class TrustedRequestContext(BaseModel):
@@ -45,7 +50,7 @@ class TrustedRequestContext(BaseModel):
     user_id: Identifier
     employee_id: Identifier | None = Field(default=None, repr=False)
     roles: tuple[Code, ...] = Field(min_length=1, repr=False)
-    permission_codes: tuple[Code, ...] = Field(repr=False)
+    permission_codes: tuple[PolicyCode, ...] = Field(repr=False)
     legal_entity_ids: tuple[Identifier, ...] = Field(min_length=1, repr=False)
     enabled_modules: tuple[Code, ...] = Field(repr=False)
     locale: str
@@ -54,7 +59,7 @@ class TrustedRequestContext(BaseModel):
     issued_at: datetime
     authorization_snapshot_id: Identifier
 
-    @field_validator("roles", "permission_codes", "enabled_modules", mode="before")
+    @field_validator("roles", "enabled_modules", mode="before")
     @classmethod
     def normalize_codes(cls, value: Any) -> Any:
         if not isinstance(value, (list, tuple)):
@@ -65,6 +70,15 @@ class TrustedRequestContext(BaseModel):
         if len(set(normalized)) != len(normalized):
             raise ValueError("duplicate values are not allowed")
         return tuple(sorted(normalized))
+
+    @field_validator("permission_codes", mode="before")
+    @classmethod
+    def validate_and_order_permission_codes(cls, value: Any) -> Any:
+        if not isinstance(value, (list, tuple)):
+            return value
+        if len(set(value)) != len(value):
+            raise ValueError("duplicate values are not allowed")
+        return tuple(sorted(value))
 
     @field_validator("legal_entity_ids", mode="before")
     @classmethod

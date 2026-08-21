@@ -14,6 +14,7 @@ from pydantic import (
 )
 
 _CODE_PATTERN = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+_POLICY_CODE_PATTERN = re.compile(r"^[a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)*$")
 _VERSION_PATTERN = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
 
 Code = Annotated[
@@ -25,6 +26,10 @@ Version = Annotated[
     str,
     BeforeValidator(lambda value: value.strip() if isinstance(value, str) else value),
     StringConstraints(strict=True, pattern=_VERSION_PATTERN),
+]
+PolicyCode = Annotated[
+    str,
+    StringConstraints(strict=True, pattern=_POLICY_CODE_PATTERN),
 ]
 
 
@@ -54,18 +59,26 @@ class ToolDescriptor(BaseModel):
     tool_name: Code
     version: Version
     operation: Literal["read", "command"]
-    required_permissions_all: tuple[Code, ...] = Field(repr=False)
+    required_permissions_all: tuple[PolicyCode, ...] = Field(repr=False)
     required_roles_any: tuple[Code, ...] = Field(repr=False)
     allowed_purposes: tuple[Code, ...] = Field(min_length=1, repr=False)
     data_classification: DataClassification
-    audit_action: Code
+    audit_action: PolicyCode
+    requires_employee_context: bool = False
 
-    @field_validator(
-        "required_permissions_all", "required_roles_any", "allowed_purposes", mode="before"
-    )
+    @field_validator("required_roles_any", "allowed_purposes", mode="before")
     @classmethod
     def normalize_authorization_codes(cls, value: Any) -> Any:
         return _normalize_codes(value)
+
+    @field_validator("required_permissions_all", mode="before")
+    @classmethod
+    def validate_and_order_permissions(cls, value: Any) -> Any:
+        if not isinstance(value, (list, tuple)):
+            return value
+        if len(set(value)) != len(value):
+            raise ValueError("duplicate codes are not allowed")
+        return tuple(sorted(value))
 
     @field_validator("data_classification", mode="before")
     @classmethod

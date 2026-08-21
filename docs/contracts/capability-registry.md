@@ -14,8 +14,10 @@ and reject duplicate modules, permissions, roles, purposes, tools, capabilities,
 names.
 
 `data_classification` is one of `public`, `internal`, `restricted`, or `highly_restricted`.
-`audit_action` is a normalized non-empty code. Both remain server-side governance metadata and
-are deliberately absent from the minimal model-facing tool projection.
+Permission and audit-action codes accept strict lowercase dotted segments. Capability, module,
+role, purpose, and tool codes remain lowercase snake case and do not accept dots.
+`audit_action` is a canonical non-empty code. Both classification and action remain server-side
+governance metadata and are deliberately absent from the minimal model-facing tool projection.
 
 The registry sorts capabilities and tools by code/name so registration and access results are
 deterministic. Manifests are supplied by trusted application startup wiring; YAML parsing and
@@ -48,5 +50,6 @@ upstream provider into `TrustedRequestContext.enabled_modules`. The registry mus
 table or hold customer database credentials. Freshness and authenticity remain the responsibility
 of the trusted context resolver described in the trusted request-context contract.
 
-The HR Core, Leave, and Payroll manifests used in unit tests are synthetic fixtures only. No
-production domain capability package is registered by this implementation.
+The HR Core self-profile manifest is the first production capability contract. Other HR Core,
+Leave, and Payroll manifests used by registry unit tests remain synthetic fixtures and are not
+production registrations.

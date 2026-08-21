@@ -14,7 +14,7 @@ claims returned by that provider. Unknown or missing fields fail validation.
 | `user_id` | Authenticated ERP actor |
 | `employee_id` | Optional trusted user-to-employee link |
 | `roles` | Normalized role codes used by authorization policy |
-| `permission_codes` | Normalized effective permission codes |
+| `permission_codes` | Canonical lowercase effective permission codes; dotted segments are allowed |
 | `legal_entity_ids` | Legal entities within the resolved data scope |
 | `enabled_modules` | Licensed and enabled ERP modules resolved upstream |
 | `locale` | Authoritative actor/customer locale used by trusted policy logic |
@@ -23,8 +23,10 @@ claims returned by that provider. Unknown or missing fields fail validation.
 | `issued_at` | Timezone-aware time at which the authorization context was issued |
 | `authorization_snapshot_id` | Opaque identifier for the upstream authorization snapshot |
 
-Collections are immutable tuples. Codes are normalized to lowercase and sorted, and duplicate
-values are rejected after normalization. The timezone must resolve through `zoneinfo.ZoneInfo`.
+Collections are immutable tuples and sorted deterministically. Role, purpose, and module codes
+retain their lowercase snake-case namespace. Permission codes use strict lowercase dotted
+segments and reject whitespace or uppercase input. Duplicate values are rejected. The timezone
+must resolve through `zoneinfo.ZoneInfo`.
 
 ## Trusted and public fields
 
