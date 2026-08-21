@@ -53,6 +53,13 @@ def test_rejects_any_unknown_field() -> None:
         PublicChatRequest.model_validate({"message": "Hello", "unexpected": True}, strict=True)
 
 
+def test_rejects_read_only_mode_control() -> None:
+    with pytest.raises(ValidationError):
+        PublicChatRequest.model_validate(
+            {"message": "Create leave", "read_only_mode": False}, strict=True
+        )
+
+
 @pytest.mark.parametrize("language", ["english", 123])
 def test_rejects_invalid_preferred_response_language(language: object) -> None:
     with pytest.raises(ValidationError):
