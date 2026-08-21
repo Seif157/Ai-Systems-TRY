@@ -4,9 +4,10 @@ A modular, entitlement-aware AI layer for an ERP product.
 
 The platform uses one shared AI core and a separate capability package for each ERP domain. Every customer receives only the capabilities licensed and enabled in their ERP installation. The AI never decides access by itself: customer context, module entitlements, roles, and data scope are resolved and enforced by trusted application services before any retrieval or tool call.
 
-> **Current status:** architecture, trusted request context, safe audit projection, and the
-> entitlement-aware capability registry are implemented as in-memory contracts. ERP, HR, AI,
-> RAG, and tool integrations remain planned. The first production vertical slice is
+> **Current status:** architecture, trusted request context, capability registry, and the
+> read-only typed tool execution gateway are implemented as in-memory contracts. Tool execution
+> returns audit-free public results and fails closed through a mandatory audit-sink boundary.
+> ERP/HR handlers, AI, RAG, and external integrations remain planned. The first production slice is
 > **HR Core + Leave**.
 
 ## Contents
@@ -73,6 +74,7 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 | Customer isolation model | Defined | One PostgreSQL database and isolated AI resources per customer |
 | Trusted request context | Implemented | Versioned server-owned context, public boundary, and redacted audit projection |
 | Capability registry | Implemented | Immutable governed manifests; module, permission, role, purpose, and read-only filtering |
+| Read-tool gateway | Implemented | Reauthorization, audit-free public results, mandatory fail-closed audit delivery |
 | HR database and AI contract | Blocked | Authoritative HR schema and ERP API contract are not in this repository |
 | AI gateway and orchestrator | Planned | Implement before module expansion |
 | HR Core + Leave read tools | Next | First end-to-end release |
