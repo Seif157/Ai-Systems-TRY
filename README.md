@@ -89,6 +89,7 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 | AI gateway and orchestrator | Planned | Implement before module expansion |
 | Remaining HR Core + Leave read tools | Next | Additional first-release reads |
 | HR knowledge retrieval | Implemented contract | Module-scoped approved product/policy excerpts, trusted pre-filter scope, post-validation, safe citations, and untrusted-content marking; no real retrieval provider |
+| Knowledge ingestion preparation | Implemented contract | Approved normalized documents, governance inheritance, deterministic section-aware chunks, opaque SHA-256 IDs, and SemVer idempotency; no parser, embedding, storage, or index mutation |
 | Agent orchestration | Implemented contract | Stateless bounded model turns, structurally bound general/knowledge/ERP/mixed evidence, deterministic input/catalog budgets, gateway-only execution, citation enforcement, and mandatory agent audit; no production model provider |
 | HR write command | Planned | Leave request with preview, confirmation, and idempotency |
 | Additional ERP capabilities | Planned | Added independently after the first vertical slice passes security gates |

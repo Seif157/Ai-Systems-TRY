@@ -59,3 +59,7 @@ Only approved product documentation and customer policies belong in this path. L
 leave, payroll, or other transactional ERP data must continue through typed permission-aware ERP
 tools. There is no ingestion, embedding, vector database, network, filesystem, or SQL integration
 in the current implementation; tests inject in-memory fake providers.
+
+The separate ingestion-preparation contract can normalize, govern, fingerprint, and deterministically
+chunk an already-approved in-memory document. Preparation is not indexing: retrieval storage,
+embeddings, publication, supersession, and deletion remain future index-writer responsibilities.
