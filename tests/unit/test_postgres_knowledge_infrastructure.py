@@ -9,6 +9,7 @@ from erp_ai.infrastructure.postgres.config import (
     KnowledgeDatabaseRouteConfig,
     StaticKnowledgeDatabaseConfig,
 )
+from erp_ai.infrastructure.postgres.embedding_repository import _vector_literal as stored_vector
 from erp_ai.infrastructure.postgres.errors import (
     KnowledgeMigrationError,
     KnowledgeStorageUnavailable,
@@ -24,6 +25,7 @@ from erp_ai.infrastructure.postgres.routing import (
     KnowledgeDatabaseAccess,
     StaticKnowledgeDatabaseRouter,
 )
+from erp_ai.infrastructure.postgres.semantic_retrieval import _vector_literal as query_vector
 from erp_ai.knowledge.ingestion import SourceProvenance
 from tests.unit.test_knowledge_index_publication import bundle
 
@@ -73,7 +75,11 @@ def test_missing_old_or_invalid_pgvector(extension_version: str | None) -> None:
 
 
 def test_only_known_packaged_migrations_are_readable() -> None:
-    assert MIGRATIONS == ("0001_knowledge_schema.sql", "0002_knowledge_security.sql")
+    assert MIGRATIONS == (
+        "0001_knowledge_schema.sql",
+        "0002_knowledge_security.sql",
+        "0003_knowledge_embeddings.sql",
+    )
     for name in MIGRATIONS:
         raw = _migration_bytes(name)
         assert raw and b"erp_ai_knowledge" in raw
@@ -149,6 +155,20 @@ def test_sql_contract_contains_rls_fts_identity_and_no_vector_column() -> None:
     assert "embedding vector" not in schema.lower() and "using hnsw" not in schema.lower()
     assert "FORCE ROW LEVEL SECURITY" in security
     assert "current_setting('erp_ai.customer_environment_id', true)" in security
+
+
+def test_embedding_migration_has_exact_vectors_rls_immutability_and_no_approximate_index() -> None:
+    migration = Path(
+        "src/erp_ai/infrastructure/postgres/sql/0003_knowledge_embeddings.sql"
+    ).read_text(encoding="utf-8")
+    lowered = migration.lower()
+    assert "embedding vector not null" in lowered
+    assert "vector_dims" in lowered
+    assert "force row level security" in lowered
+    assert "embedding_audit_outbox" in lowered
+    assert "reject_embedding_mutation" in lowered
+    assert "using hnsw" not in lowered and "using ivfflat" not in lowered
+    assert stored_vector((0.1, -2.0)) == query_vector((0.1, -2.0)) == "[0.1,-2]"
 
 
 def test_path_free_source_provenance_digest_is_stable() -> None:

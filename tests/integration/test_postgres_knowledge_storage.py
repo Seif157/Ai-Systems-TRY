@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import json
 import os
 import selectors
 from collections.abc import Coroutine
@@ -13,10 +14,13 @@ from psycopg.conninfo import make_conninfo
 from psycopg.errors import DuplicateObject
 
 from erp_ai.infrastructure.postgres import (
+    EmbeddingMaterializationConflict,
     KnowledgeDatabaseAccess,
     KnowledgeDatabaseRouteConfig,
+    PostgresEmbeddingRepository,
     PostgresKnowledgeIndexRepository,
     PostgresLexicalKnowledgeRetrievalProvider,
+    PostgresSemanticKnowledgeRetrievalProvider,
     StaticKnowledgeDatabaseConfig,
     StaticKnowledgeDatabaseRouter,
 )
@@ -33,7 +37,14 @@ from erp_ai.infrastructure.postgres.migrations import (
     run_migrations,
 )
 from erp_ai.knowledge import KnowledgeRetrievalRequest
+from erp_ai.knowledge.embeddings import (
+    EmbeddingBatchRequest,
+    EmbeddingBatchResult,
+    EmbeddingMaterializer,
+    EmbeddingVector,
+)
 from erp_ai.knowledge.indexing import KnowledgeIndexPublisher, KnowledgePublicationConflict
+from tests.unit.test_embedding_models import profile
 from tests.unit.test_knowledge_index_publication import bundle, context
 
 ADMIN_DSN = os.environ.get("ERP_AI_TEST_ADMIN_DSN")
@@ -448,3 +459,218 @@ def test_migration_checksum_drift_and_identity_rebinding() -> None:
             await connection.close()
 
     _run(scenario())
+
+
+class MechanicalEmbeddingProvider:
+    """Test-only vectors prove mechanics, never language or semantic quality."""
+
+    async def embed(self, request: EmbeddingBatchRequest) -> EmbeddingBatchResult:
+        vectors = []
+        for item in request.inputs:
+            if "unauthorized" in item.text or item.input_id == "semantic_query":
+                values = (1.0, 0.0, 0.0)
+            elif "authorized" in item.text:
+                values = (0.8, 0.2, 0.0)
+            else:
+                values = (0.0, 1.0, 0.0)
+            vectors.append(EmbeddingVector(input_id=item.input_id, values=values))
+        return EmbeddingBatchResult(
+            profile_sha256=request.profile.profile_sha256, vectors=tuple(vectors)
+        )
+
+
+async def _exercise_semantic_storage() -> None:
+    router = await _provision()
+    embedding_profile = profile()
+    provider = MechanicalEmbeddingProvider()
+    try:
+        repository = PostgresKnowledgeIndexRepository(router, "customer-a")
+        publisher = KnowledgeIndexPublisher(repository)
+        documents = (
+            bundle(content="authorized policy alpha", version="1.2.3"),
+            bundle(content="authorized policy beta", version="1.9.0"),
+            bundle(
+                content="unauthorized exact secret",
+                version="12.34.567",
+                permissions=("hr.secret.read",),
+            ),
+        )
+        publication = await publisher.publish(
+            context(operation="semantic-publication"),
+            documents,
+            expected_active_generation_id=None,
+        )
+        embedding_repository = PostgresEmbeddingRepository(router, "customer-a")
+        source = await embedding_repository.load_generation_source(
+            publication.scope, publication.generation_id
+        )
+        prepared = await EmbeddingMaterializer(provider, batch_size=2).materialize(
+            source, embedding_profile
+        )
+        result = await embedding_repository.persist(
+            prepared,
+            operation_id="embedding-operation-1",
+            request_id="embedding-request-1",
+            actor_id="embedding-admin",
+        )
+        assert result.embedding_count == len(source.chunks)
+        assert (
+            await embedding_repository.persist(
+                prepared,
+                operation_id="embedding-operation-1",
+                request_id="embedding-request-1",
+                actor_id="embedding-admin",
+            )
+            == result
+        )
+
+        request = KnowledgeRetrievalRequest(
+            namespace="hr",
+            query="find policy",
+            maximum_results=5,
+            customer_environment_id="customer-a",
+            enabled_modules=("hr_core", "leave"),
+            permission_codes=("hr.knowledge.read",),
+            roles=("employee",),
+            authorized_legal_entity_ids=("entity-a",),
+            purpose="employee_self_service",
+            locale="en",
+            effective_at=datetime.now(UTC),
+        )
+        semantic = PostgresSemanticKnowledgeRetrievalProvider(
+            router, "customer-a", embedding_profile, provider
+        )
+        matches = await semantic.retrieve(request)
+        assert len(matches) == 2
+        assert all("unauthorized" not in item.content for item in matches)
+        assert tuple(item.chunk_id for item in matches) == tuple(
+            sorted(item.chunk_id for item in matches)
+        )
+        assert {item.document_version for item in matches} == {"1.2.3", "1.9.0"}
+        assert await semantic.retrieve(request.model_copy(update={"query": "'); DROP TABLE x; --"}))
+
+        mismatch = PostgresSemanticKnowledgeRetrievalProvider(
+            router, "customer-a", profile(model_revision="revision-2"), provider
+        )
+        assert await mismatch.retrieve(request) == ()
+        with pytest.raises(EmbeddingMaterializationConflict):
+            changed = prepared.model_copy(update={"embedding_set_sha256": "f" * 64})
+            await embedding_repository.persist(
+                changed,
+                operation_id="embedding-operation-1",
+                request_id="embedding-request-2",
+                actor_id="embedding-admin",
+            )
+
+        alternate_profile = profile(profile_id="knowledge_v2", model_revision="revision-2")
+        alternate = await EmbeddingMaterializer(provider).materialize(source, alternate_profile)
+        broken_item = alternate.embeddings[0].model_copy(update={"content_sha256": "0" * 64})
+        broken = alternate.model_copy(
+            update={"embeddings": (broken_item, *alternate.embeddings[1:])}
+        )
+        with pytest.raises(KnowledgeStorageUnavailable):
+            await embedding_repository.persist(
+                broken,
+                operation_id="embedding-operation-failed",
+                request_id="embedding-request-failed",
+                actor_id="embedding-admin",
+            )
+
+        replacement = await publisher.publish(
+            context(operation="semantic-replacement"),
+            (bundle(content="new active generation"),),
+            expected_active_generation_id=publication.generation_id,
+        )
+        assert await semantic.retrieve(request) == ()
+        await publisher.rollback(
+            context(operation="semantic-rollback"),
+            target_generation_id=publication.generation_id,
+            expected_active_generation_id=replacement.generation_id,
+        )
+        assert await semantic.retrieve(request)
+
+        customer_b_semantic = PostgresSemanticKnowledgeRetrievalProvider(
+            router, "customer-b", embedding_profile, provider
+        )
+        assert (
+            await customer_b_semantic.retrieve(
+                request.model_copy(update={"customer_environment_id": "customer-b"})
+            )
+            == ()
+        )
+        with pytest.raises(KnowledgeDatabaseIdentityError):
+            await semantic.retrieve(
+                request.model_copy(update={"customer_environment_id": "customer-b"})
+            )
+
+        admin = await psycopg.AsyncConnection.connect(_database_dsn("erp_ai_test_a"))
+        try:
+            counts = await (
+                await admin.execute(
+                    """SELECT
+                    (SELECT count(*) FROM erp_ai_knowledge.embedding_sets),
+                    (SELECT count(*) FROM erp_ai_knowledge.embedding_operations),
+                    (SELECT count(*) FROM erp_ai_knowledge.embedding_audit_outbox),
+                    (SELECT count(*) FROM pg_indexes WHERE schemaname='erp_ai_knowledge'
+                     AND (indexdef ILIKE '%hnsw%' OR indexdef ILIKE '%ivfflat%'))"""
+                )
+            ).fetchone()
+            assert counts == (1, 1, 1, 0)
+            safe_event = await (
+                await admin.execute(
+                    """SELECT to_jsonb(event)-'actor_id' FROM
+                    erp_ai_knowledge.embedding_audit_outbox event"""
+                )
+            ).fetchone()
+            serialized = json.dumps(safe_event[0])
+            assert set(safe_event[0]) == {
+                "action",
+                "created_at",
+                "customer_environment_id",
+                "embedding_count",
+                "embedding_set_sha256",
+                "generation_digest",
+                "generation_id",
+                "namespace",
+                "operation_id",
+                "outbox_id",
+                "outcome",
+                "request_id",
+            }
+            for forbidden in (
+                "authorized policy",
+                "unauthorized",
+                "permissions",
+                "modules",
+                "vector",
+                "query",
+                "profile_id",
+                "profile_sha256",
+                "provider",
+                "model_id",
+            ):
+                assert forbidden not in serialized
+            role_access = await (
+                await admin.execute(
+                    """SELECT
+                    has_table_privilege(%s,'erp_ai_knowledge.chunk_embeddings','UPDATE'),
+                    has_table_privilege(%s,'erp_ai_knowledge.embedding_audit_outbox','SELECT')""",
+                    (PUBLISHER_ROLE, PUBLISHER_ROLE),
+                )
+            ).fetchone()
+            assert role_access == (False, False)
+        finally:
+            await admin.close()
+
+        await router.close()
+        await router.open()
+        restarted = PostgresSemanticKnowledgeRetrievalProvider(
+            router, "customer-a", embedding_profile, provider
+        )
+        assert await restarted.retrieve(request)
+    finally:
+        await router.close()
+
+
+def test_postgres_embedding_materialization_and_exact_semantic_retrieval() -> None:
+    _run(_exercise_semantic_storage())

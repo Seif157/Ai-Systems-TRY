@@ -1,0 +1,197 @@
+"""Exact pgvector cosine retrieval over one authorized active generation."""
+
+import asyncio
+import hashlib
+from decimal import Decimal
+from typing import Any, cast
+
+from erp_ai.capabilities import DataClassification
+from erp_ai.infrastructure.postgres.errors import (
+    KnowledgeDatabaseIdentityError,
+    KnowledgeStorageUnavailable,
+)
+from erp_ai.infrastructure.postgres.routing import KnowledgeDatabaseAccess, KnowledgeDatabaseRouter
+from erp_ai.knowledge import KnowledgeMatch, KnowledgeRetrievalRequest, KnowledgeSourceType
+from erp_ai.knowledge.embeddings import (
+    EmbeddingBatchRequest,
+    EmbeddingInput,
+    EmbeddingProfile,
+    EmbeddingProvider,
+)
+
+_SEMANTIC_QUERY = """
+WITH ready_set AS (
+    SELECT s.customer_environment_id,s.namespace,s.generation_id,s.profile_sha256
+    FROM erp_ai_knowledge.embedding_sets s
+    JOIN erp_ai_knowledge.generations g USING
+      (customer_environment_id,namespace,generation_id)
+    WHERE s.customer_environment_id=%s AND s.namespace=%s AND s.generation_id=%s
+      AND s.profile_sha256=%s AND s.status='ready'
+      AND s.embedding_count=g.chunk_count
+      AND s.embedding_count=(
+          SELECT count(*) FROM erp_ai_knowledge.chunk_embeddings complete
+          WHERE complete.customer_environment_id=s.customer_environment_id
+            AND complete.namespace=s.namespace AND complete.generation_id=s.generation_id
+            AND complete.profile_sha256=s.profile_sha256)
+), eligible AS (
+    SELECT c.*, e.embedding OPERATOR(public.<=>) %s::public.vector AS cosine_distance
+    FROM erp_ai_knowledge.chunks c
+    JOIN ready_set s
+     ON s.customer_environment_id=c.customer_environment_id
+     AND s.namespace=c.namespace AND s.generation_id=c.generation_id
+     AND s.profile_sha256=%s
+    JOIN erp_ai_knowledge.chunk_embeddings e
+      ON e.customer_environment_id=c.customer_environment_id
+     AND e.namespace=c.namespace AND e.generation_id=c.generation_id
+     AND e.profile_sha256=s.profile_sha256 AND e.chunk_id=c.chunk_id
+    WHERE c.customer_environment_id=%s AND c.generation_id=%s AND c.namespace=%s
+      AND (c.source_type='product_documentation'
+           OR (c.source_type='customer_policy' AND c.document_customer_environment_id=%s))
+      AND c.required_modules_all <@ %s::text[]
+      AND c.required_permissions_all <@ %s::text[]
+      AND %s = ANY(c.allowed_purposes)
+      AND c.legal_entity_ids <@ %s::text[]
+      AND c.effective_from <= %s
+      AND (c.effective_to IS NULL OR c.effective_to > %s)
+      AND c.data_classification = ANY(%s::text[])
+      AND CASE c.data_classification
+          WHEN 'public' THEN 0 WHEN 'internal' THEN 1 WHEN 'restricted' THEN 2 ELSE 3 END <= 2
+)
+SELECT chunk_id,document_id,citation_id,namespace,source_type,
+       document_customer_environment_id,required_modules_all,required_permissions_all,
+       allowed_purposes,legal_entity_ids,data_classification,language,title,section,
+       document_version,effective_from,effective_to,content,
+       greatest(0::double precision,least(1::double precision,1-cosine_distance/2))
+FROM eligible
+ORDER BY cosine_distance ASC,chunk_id ASC
+LIMIT %s
+"""
+
+
+def _vector_literal(values: tuple[float, ...]) -> str:
+    return "[" + ",".join(format(value, ".9g") for value in values) + "]"
+
+
+class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integration boundary
+    __slots__ = ("_customer", "_profile", "_provider", "_router")
+
+    def __init__(
+        self,
+        router: KnowledgeDatabaseRouter,
+        customer_environment_id: str,
+        profile: EmbeddingProfile,
+        provider: EmbeddingProvider,
+    ) -> None:
+        self._router = router
+        self._customer = customer_environment_id
+        self._profile = profile
+        self._provider = provider
+
+    async def retrieve(self, request: KnowledgeRetrievalRequest) -> tuple[KnowledgeMatch, ...]:
+        if request.customer_environment_id != self._customer:
+            raise KnowledgeDatabaseIdentityError("knowledge database identity mismatch")
+        try:
+            query_input = EmbeddingInput(
+                input_id="semantic_query",
+                text=request.query,
+                content_sha256=hashlib.sha256(request.query.encode()).hexdigest(),
+                data_classification=DataClassification.INTERNAL,
+            )
+            result = await self._provider.embed(
+                EmbeddingBatchRequest(profile=self._profile, inputs=(query_input,))
+            )
+            if result.profile_sha256 != self._profile.profile_sha256 or len(result.vectors) != 1:
+                raise KnowledgeStorageUnavailable("semantic query embedding is unavailable")
+            vector = result.vectors[0]
+            if (
+                vector.input_id != query_input.input_id
+                or len(vector.values) != self._profile.dimensions
+            ):
+                raise KnowledgeStorageUnavailable("semantic query embedding is unavailable")
+            pool = self._router.pool(self._customer, KnowledgeDatabaseAccess.READER)
+            async with pool.connection() as connection, connection.transaction():
+                await connection.execute(
+                    "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
+                )
+                await connection.execute(
+                    "SELECT set_config('erp_ai.customer_environment_id', %s, true)",
+                    (self._customer,),
+                )
+                identity = await (
+                    await connection.execute(
+                        """SELECT customer_environment_id FROM erp_ai_knowledge.database_identity
+                        WHERE singleton=true"""
+                    )
+                ).fetchone()
+                if identity != (self._customer,):
+                    raise KnowledgeDatabaseIdentityError("knowledge database identity mismatch")
+                active = await (
+                    await connection.execute(
+                        """SELECT generation_id FROM erp_ai_knowledge.active_generations
+                        WHERE customer_environment_id=%s AND namespace=%s""",
+                        (self._customer, request.namespace),
+                    )
+                ).fetchone()
+                if active is None:
+                    return ()
+                rows = await (
+                    await connection.execute(
+                        _SEMANTIC_QUERY,
+                        (
+                            self._customer,
+                            request.namespace,
+                            active[0],
+                            self._profile.profile_sha256,
+                            _vector_literal(vector.values),
+                            self._profile.profile_sha256,
+                            self._customer,
+                            active[0],
+                            request.namespace,
+                            self._customer,
+                            list(request.enabled_modules),
+                            list(request.permission_codes),
+                            request.purpose,
+                            list(request.authorized_legal_entity_ids),
+                            request.effective_at,
+                            request.effective_at,
+                            [item.value for item in self._profile.allowed_data_classifications],
+                            request.maximum_results,
+                        ),
+                    )
+                ).fetchall()
+                return tuple(self._match(row) for row in rows)
+        except asyncio.CancelledError:
+            raise
+        except KnowledgeDatabaseIdentityError:
+            raise
+        except KnowledgeStorageUnavailable:
+            raise
+        except Exception:
+            raise KnowledgeStorageUnavailable(
+                "semantic knowledge retrieval is unavailable"
+            ) from None
+
+    @staticmethod
+    def _match(row: tuple[Any, ...]) -> KnowledgeMatch:
+        rank = Decimal(str(row[18]))
+        return KnowledgeMatch(
+            chunk_id=str(row[0]),
+            document_id=str(row[1]),
+            citation_id=str(row[2]),
+            namespace=cast(str, row[3]),
+            source_type=KnowledgeSourceType(row[4]),
+            customer_environment_id=cast(str | None, row[5]),
+            required_modules_all=tuple(cast(list[str], row[6])),
+            required_permissions_all=tuple(cast(list[str], row[7])),
+            allowed_purposes=tuple(cast(list[str], row[8])),
+            legal_entity_ids=tuple(cast(list[str], row[9])),
+            data_classification=cast(Any, row[10]),
+            language=cast(str, row[11]),
+            title=cast(str, row[12]),
+            section=cast(str, row[13]),
+            document_version=cast(str, row[14]),
+            effective_from=cast(Any, row[15]),
+            effective_to=cast(Any, row[16]),
+            content=cast(str, row[17]),
+            relevance_score=float(rank),
+        )

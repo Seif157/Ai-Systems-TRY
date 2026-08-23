@@ -10,7 +10,11 @@ from psycopg import AsyncConnection, sql
 from erp_ai.context.models import Identifier
 from erp_ai.infrastructure.postgres.errors import KnowledgeMigrationError
 
-MIGRATIONS = ("0001_knowledge_schema.sql", "0002_knowledge_security.sql")
+MIGRATIONS = (
+    "0001_knowledge_schema.sql",
+    "0002_knowledge_security.sql",
+    "0003_knowledge_embeddings.sql",
+)
 SCHEMA_CONTRACT_VERSION = 1
 _MIGRATION_LOCK_ID = 7_301_130_013
 
@@ -143,7 +147,9 @@ async def grant_runtime_roles(  # pragma: no cover - integration boundary
                 sql.SQL(
                     "GRANT SELECT ON erp_ai_knowledge.database_identity, "
                     "erp_ai_knowledge.active_generations, erp_ai_knowledge.generations, "
-                    "erp_ai_knowledge.documents, erp_ai_knowledge.chunks TO {}"
+                    "erp_ai_knowledge.documents, erp_ai_knowledge.chunks, "
+                    "erp_ai_knowledge.embedding_profiles, erp_ai_knowledge.embedding_sets, "
+                    "erp_ai_knowledge.chunk_embeddings TO {}"
                 ).format(sql.Identifier(reader_role))
             )
             await connection.execute(
@@ -151,7 +157,9 @@ async def grant_runtime_roles(  # pragma: no cover - integration boundary
                     "GRANT SELECT ON erp_ai_knowledge.database_identity, "
                     "erp_ai_knowledge.generations, erp_ai_knowledge.active_generations, "
                     "erp_ai_knowledge.documents, erp_ai_knowledge.chunks, "
-                    "erp_ai_knowledge.operations TO {}"
+                    "erp_ai_knowledge.operations, erp_ai_knowledge.embedding_profiles, "
+                    "erp_ai_knowledge.embedding_sets, erp_ai_knowledge.chunk_embeddings, "
+                    "erp_ai_knowledge.embedding_operations TO {}"
                 ).format(sql.Identifier(publisher_role))
             )
             await connection.execute(
@@ -159,13 +167,26 @@ async def grant_runtime_roles(  # pragma: no cover - integration boundary
                     "GRANT INSERT ON erp_ai_knowledge.generations, "
                     "erp_ai_knowledge.active_generations, erp_ai_knowledge.documents, "
                     "erp_ai_knowledge.chunks, erp_ai_knowledge.operations, "
-                    "erp_ai_knowledge.publication_audit_outbox TO {}"
+                    "erp_ai_knowledge.publication_audit_outbox, "
+                    "erp_ai_knowledge.embedding_profiles, erp_ai_knowledge.embedding_sets, "
+                    "erp_ai_knowledge.chunk_embeddings, erp_ai_knowledge.embedding_operations, "
+                    "erp_ai_knowledge.embedding_audit_outbox TO {}"
                 ).format(sql.Identifier(publisher_role))
             )
             await connection.execute(
                 sql.SQL("GRANT UPDATE (status) ON erp_ai_knowledge.generations TO {}").format(
                     sql.Identifier(publisher_role)
                 )
+            )
+            await connection.execute(
+                sql.SQL(
+                    "GRANT UPDATE (status, ready_at) ON erp_ai_knowledge.embedding_sets TO {}"
+                ).format(sql.Identifier(publisher_role))
+            )
+            await connection.execute(
+                sql.SQL(
+                    "GRANT EXECUTE ON FUNCTION erp_ai_knowledge.validate_chunk_embedding() TO {}"
+                ).format(sql.Identifier(publisher_role))
             )
             await connection.execute(
                 sql.SQL(

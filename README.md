@@ -93,6 +93,7 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 | Markdown source adapter | Implemented contract | Explicit TOML allowlist, raw SHA-256 pinning, root/path/symlink confinement, token extraction, and parser-version fingerprinting; no discovery, uploads, or publication |
 | Knowledge index publication | Implemented contract | Customer-scoped immutable generations, deterministic incremental manifests, CAS activation/rollback, snapshot binding, idempotency, and transactional audit outbox; PostgreSQL adapter available |
 | PostgreSQL knowledge storage | Implemented adapter | Static per-customer reader/publisher/admin routing, identity binding, RLS, atomic publication, retained rollback, exact SemVer preservation, and Arabic/English lexical retrieval; no embeddings or vector search |
+| Exact semantic retrieval | Implemented adapter | Provider-neutral deterministic embedding contracts, atomic complete generation sets, and exact pgvector cosine search; test provider only, with no approximate index, fallback, or production model |
 | Agent orchestration | Implemented contract | Stateless bounded model turns, structurally bound general/knowledge/ERP/mixed evidence, deterministic input/catalog budgets, gateway-only execution, citation enforcement, and mandatory agent audit; no production model provider |
 | HR write command | Planned | Leave request with preview, confirmation, and idempotency |
 | Additional ERP capabilities | Planned | Added independently after the first vertical slice passes security gates |

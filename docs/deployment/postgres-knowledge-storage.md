@@ -55,6 +55,6 @@ DSNs are secrets: provide them through an approved secret manager, never public/
 logs, exception messages, source control, or telemetry. Pools have explicit open/close lifecycle,
 no automatic retry, and transaction-local tenant/timeout state.
 
-No vector column or index exists yet. pgvector is provisioned only to establish compatibility;
-embedding profile selection, vector dimensions, backfill, and HNSW/IVFFlat design require a future
-review.
+Migration 0003 adds exact vector storage without an approximate index. Production embedding
+profile selection, provider credentials, backfill scheduling, retention, and any future
+HNSW/IVFFlat design require separate review.
