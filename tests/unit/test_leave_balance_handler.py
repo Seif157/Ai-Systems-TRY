@@ -74,6 +74,9 @@ class FakeLeaveProvider:
             raise RuntimeError("private provider failure")
         return self.records
 
+    async def list_my_leave_requests(self, **kwargs: object) -> object:
+        raise AssertionError(f"unexpected request-list call: {kwargs}")
+
 
 def run(handler: GetMyLeaveBalancesHandler, trusted_context: TrustedRequestContext) -> object:
     return asyncio.run(handler.execute(trusted_context, GetMyLeaveBalancesInput()))

@@ -8,6 +8,10 @@ from erp_ai.capabilities.leave.models import (
     GetMyLeaveBalancesInput,
     GetMyLeaveBalancesOutput,
     LeaveBalanceItem,
+    LeaveRequestSummary,
+    LeaveRequestSummaryRecord,
+    ListMyLeaveRequestsInput,
+    ListMyLeaveRequestsOutput,
 )
 from erp_ai.capabilities.leave.provider import LeaveReadProvider
 from erp_ai.context import TrustedRequestContext
@@ -15,6 +19,10 @@ from erp_ai.context import TrustedRequestContext
 
 class _LeaveBalancesUnavailableError(RuntimeError):
     """Internal failure collapsed by the gateway to a safe execution error."""
+
+
+class _LeaveRequestsUnavailableError(RuntimeError):
+    """Internal list failure collapsed by the gateway to a safe execution error."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,4 +95,91 @@ class GetMyLeaveBalancesHandler:
                 )
                 for record in ordered_records
             )
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class ListMyLeaveRequestsHandler:
+    """List safe request summaries owned by the linked employee."""
+
+    provider: LeaveReadProvider
+
+    tool_name = "list_my_leave_requests"
+    version = "1.0.0"
+    input_model = ListMyLeaveRequestsInput
+    output_model = ListMyLeaveRequestsOutput
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.provider, LeaveReadProvider):
+            raise TypeError("provider must implement LeaveReadProvider")
+
+    async def execute(
+        self,
+        context: TrustedRequestContext,
+        arguments: BaseModel,
+    ) -> object:
+        if not isinstance(arguments, ListMyLeaveRequestsInput):
+            raise TypeError("unexpected leave request list input model")
+        if context.employee_id is None:
+            raise _LeaveRequestsUnavailableError("employee context is required")
+
+        page = await self.provider.list_my_leave_requests(
+            customer_environment_id=context.customer_environment_id,
+            employee_id=context.employee_id,
+            authorized_legal_entity_ids=context.legal_entity_ids,
+            statuses=arguments.statuses,
+            start_from=arguments.start_from,
+            start_to=arguments.start_to,
+            limit=arguments.limit,
+            cursor=arguments.cursor,
+        )
+
+        if len(page.items) > arguments.limit:
+            raise _LeaveRequestsUnavailableError("provider page exceeds requested limit")
+        if not page.items and page.next_cursor is not None:
+            raise _LeaveRequestsUnavailableError("empty provider page has continuation cursor")
+
+        seen: set[str] = set()
+        previous: LeaveRequestSummaryRecord | None = None
+        for record in page.items:
+            if str(record.employee_id) != context.employee_id:
+                raise _LeaveRequestsUnavailableError("request employee ownership mismatch")
+            if str(record.legal_entity_id) not in context.legal_entity_ids:
+                raise _LeaveRequestsUnavailableError(
+                    "request legal entity outside authorized scope"
+                )
+            request_id = str(record.request_id)
+            if request_id in seen:
+                raise _LeaveRequestsUnavailableError("duplicate leave request")
+            seen.add(request_id)
+            if previous is not None:
+                if previous.submitted_at < record.submitted_at:
+                    raise _LeaveRequestsUnavailableError("provider page ordering violation")
+                if (
+                    previous.submitted_at == record.submitted_at
+                    and previous.request_id.hex > record.request_id.hex
+                ):
+                    raise _LeaveRequestsUnavailableError("provider page ordering violation")
+            previous = record
+
+        return ListMyLeaveRequestsOutput(
+            requests=tuple(
+                LeaveRequestSummary(
+                    request_id=record.request_id,
+                    leave_type_code=record.leave_type_code,
+                    leave_type_name=record.leave_type_name,
+                    leave_type_name_local=record.leave_type_name_local,
+                    start_date=record.start_date,
+                    end_date=record.end_date,
+                    working_days=record.working_days,
+                    is_half_day=record.is_half_day,
+                    half_day_period=record.half_day_period,
+                    status=record.status,
+                    submitted_at=record.submitted_at,
+                    updated_at=record.updated_at,
+                    working_days_calculation_version=(record.working_days_calculation_version),
+                )
+                for record in page.items
+            ),
+            next_cursor=page.next_cursor,
         )

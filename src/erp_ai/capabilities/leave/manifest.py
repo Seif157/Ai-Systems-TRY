@@ -18,5 +18,16 @@ LEAVE_MANIFEST = CapabilityManifest(
             audit_action="leave.balance.read_self",
             requires_employee_context=True,
         ),
+        ToolDescriptor(
+            tool_name="list_my_leave_requests",
+            version="1.0.0",
+            operation="read",
+            required_permissions_all=("leave.request.read_self",),
+            required_roles_any=(),
+            allowed_purposes=("employee_self_service",),
+            data_classification=DataClassification.RESTRICTED,
+            audit_action="leave.request.list_self",
+            requires_employee_context=True,
+        ),
     ),
 )

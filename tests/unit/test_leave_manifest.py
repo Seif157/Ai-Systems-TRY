@@ -12,7 +12,10 @@ def context(
     *,
     modules: tuple[str, ...] = ("hr_core", "leave"),
     employee_id: str | None = "employee_1",
-    permissions: tuple[str, ...] = ("leave.balance.read_self",),
+    permissions: tuple[str, ...] = (
+        "leave.balance.read_self",
+        "leave.request.read_self",
+    ),
     purpose: str = "employee_self_service",
     roles: tuple[str, ...] = ("manager",),
 ) -> TrustedRequestContext:
@@ -48,6 +51,17 @@ def test_leave_manifest_matches_governed_contract() -> None:
     assert tool.data_classification is DataClassification.RESTRICTED
     assert tool.audit_action == "leave.balance.read_self"
 
+    request_tool = LEAVE_MANIFEST.tools[1]
+    assert request_tool.tool_name == "list_my_leave_requests"
+    assert request_tool.version == "1.0.0"
+    assert request_tool.operation == "read"
+    assert request_tool.required_permissions_all == ("leave.request.read_self",)
+    assert request_tool.required_roles_any == ()
+    assert request_tool.allowed_purposes == ("employee_self_service",)
+    assert request_tool.requires_employee_context is True
+    assert request_tool.data_classification is DataClassification.RESTRICTED
+    assert request_tool.audit_action == "leave.request.list_self"
+
 
 @pytest.mark.parametrize("modules", [("hr_core",), ("leave",), ()])
 def test_both_hr_core_and_leave_entitlements_are_required(
@@ -79,4 +93,7 @@ def test_literal_employee_role_is_not_required(role: str) -> None:
         CapabilityRegistry([LEAVE_MANIFEST]), context(roles=(role,))
     )
 
-    assert decision.model_capabilities[0].tools[0].tool_name == "get_my_leave_balances"
+    assert tuple(tool.tool_name for tool in decision.model_capabilities[0].tools) == (
+        "get_my_leave_balances",
+        "list_my_leave_requests",
+    )

@@ -63,6 +63,9 @@ class FakeLeaveProvider:
             raise RuntimeError("private leave provider failure")
         return self.records.get((customer_environment_id, employee_id), ())
 
+    async def list_my_leave_requests(self, **kwargs: object) -> object:
+        raise AssertionError(f"unexpected request-list call: {kwargs}")
+
 
 class RecordingAuditSink:
     def __init__(self) -> None:
