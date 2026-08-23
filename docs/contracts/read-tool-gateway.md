@@ -94,6 +94,11 @@ guarantees. Application code must not treat `repr=False` as a substitute for saf
 
 ## Current limitations
 
+The provider-neutral agent orchestrator may present authorized public input schemas to a model, but
+the catalog remains advisory. Every model-selected invocation still passes through this gateway's
+independent authorization, validation, execution, and tool-audit boundary. Agent-level terminal
+auditing is separate and does not replace any tool audit.
+
 - Handlers are trusted in-process objects; the Protocol cannot establish their provenance.
 - The gateway enforces manifest authorization but cannot replace record-level authorization and
   data minimization in the future ERP API handler.

@@ -125,6 +125,14 @@ class ReadToolGateway:
             if tool.tool_name in self._handlers_by_name
         )
 
+    def public_input_schema(self, tool_name: str) -> Mapping[str, object]:
+        """Return a copy of a registered handler's public input schema, never its type."""
+
+        handler = self._handlers_by_name.get(tool_name)
+        if handler is None:
+            raise KeyError("tool has no installed public input schema")
+        return MappingProxyType(handler.input_model.model_json_schema(mode="validation"))
+
     @staticmethod
     def _public_failure(
         *,

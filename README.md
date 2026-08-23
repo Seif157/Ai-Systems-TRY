@@ -11,7 +11,9 @@ The platform uses one shared AI core and a separate capability package for each 
 > authorized execution paths through provider Protocols and safe output models. No real ERP
 > provider, model, vector-store, ingestion, or external integration exists yet. The first secure
 > HR knowledge-search contract now proves module-scoped pre-filtering and post-validation using
-> only a provider Protocol and test fakes. The first broader production slice
+> only a provider Protocol and test fakes. A bounded, provider-neutral agent orchestrator now
+> connects authorized catalogs, the read gateway, citation enforcement, and mandatory agent audit
+> using scripted test providers. The first broader production slice
 > remains **HR Core + Leave**.
 
 ## Contents
@@ -87,6 +89,7 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 | AI gateway and orchestrator | Planned | Implement before module expansion |
 | Remaining HR Core + Leave read tools | Next | Additional first-release reads |
 | HR knowledge retrieval | Implemented contract | Module-scoped approved product/policy excerpts, trusted pre-filter scope, post-validation, safe citations, and untrusted-content marking; no real retrieval provider |
+| Agent orchestration | Implemented contract | Stateless bounded model turns, structurally bound general/knowledge/ERP/mixed evidence, deterministic input/catalog budgets, gateway-only execution, citation enforcement, and mandatory agent audit; no production model provider |
 | HR write command | Planned | Leave request with preview, confirmation, and idempotency |
 | Additional ERP capabilities | Planned | Added independently after the first vertical slice passes security gates |
 | Cross-module orchestration | Planned | Enabled only when all required modules and permissions are available |
