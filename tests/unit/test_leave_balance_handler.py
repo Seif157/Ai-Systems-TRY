@@ -77,6 +77,9 @@ class FakeLeaveProvider:
     async def list_my_leave_requests(self, **kwargs: object) -> object:
         raise AssertionError(f"unexpected request-list call: {kwargs}")
 
+    async def get_my_leave_request(self, **kwargs: object) -> object:
+        raise AssertionError(f"unexpected request-detail call: {kwargs}")
+
 
 def run(handler: GetMyLeaveBalancesHandler, trusted_context: TrustedRequestContext) -> object:
     return asyncio.run(handler.execute(trusted_context, GetMyLeaveBalancesInput()))

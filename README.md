@@ -7,7 +7,7 @@ The platform uses one shared AI core and a separate capability package for each 
 > **Current status:** architecture, trusted request context, capability registry, and the
 > read-only typed tool execution gateway are implemented as in-memory contracts. The first HR Core
 > production contracts, `get_my_employee_profile`, `get_my_leave_balances`, and
-> `list_my_leave_requests`, now prove complete
+> `list_my_leave_requests` plus `get_my_leave_request`, now prove complete
 > authorized execution paths through provider Protocols and safe output models. No real ERP
 > provider, AI, RAG, or external integration exists yet. The first broader production slice
 > remains **HR Core + Leave**.
@@ -80,9 +80,10 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 | HR Core self profile | Implemented contract | Linked-employee self-service authorization, schema-aligned safe output, ownership checks, and audit metadata; no real ERP adapter |
 | Leave balances | Implemented contract | ERP-calculated Decimal balances, dual-module entitlement, ownership/scope checks, safe output, and audit metadata; no real ERP adapter |
 | Leave request list | Implemented contract | Canonically provider-ordered opaque-cursor pages, page invariants, ownership/scope checks, safe summaries, and audit metadata; no real ERP adapter |
+| Leave request detail | Implemented contract | Owned UUID selector, customer/employee/legal-entity checks, validated append-only status timeline, safe detail, and audit minimization; no real ERP adapter |
 | HR database and AI contract | Documented; integration blocked | HR schema documentation exists; an authoritative typed ERP API contract and owner-confirmed module mapping are still required |
 | AI gateway and orchestrator | Planned | Implement before module expansion |
-| Remaining HR Core + Leave read tools | Next | Request detail and additional first-release reads |
+| Remaining HR Core + Leave read tools | Next | Additional first-release reads |
 | HR policy RAG | Next | Approved documents only |
 | HR write command | Planned | Leave request with preview, confirmation, and idempotency |
 | Additional ERP capabilities | Planned | Added independently after the first vertical slice passes security gates |

@@ -56,7 +56,8 @@ status, timestamps, calculation version, and the opaque next cursor.
 
 It excludes employee, legal-entity, and leave-type IDs; approval and reviewer IDs; review notes;
 medical-certificate and secure-file fields; reason text; workflow correlations; creator identity;
-and raw status-history rows. A detailed timeline belongs to the future request-detail tool.
+and raw status-history rows. A detailed safe timeline is available only through the separately
+authorized `get_my_leave_request` contract.
 
 Audit events use `restricted` classification and `leave.request.list_self`. They contain no
 request values, filter values, or cursors.

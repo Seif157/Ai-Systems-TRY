@@ -2,9 +2,11 @@
 
 from datetime import date
 from typing import Protocol, runtime_checkable
+from uuid import UUID
 
 from erp_ai.capabilities.leave.models import (
     LeaveBalanceRecord,
+    LeaveRequestDetailRecord,
     LeaveRequestPageRecord,
     LeaveRequestStatus,
 )
@@ -34,3 +36,12 @@ class LeaveReadProvider(Protocol):
         limit: int,
         cursor: str | None,
     ) -> LeaveRequestPageRecord: ...
+
+    async def get_my_leave_request(
+        self,
+        *,
+        customer_environment_id: str,
+        employee_id: str,
+        authorized_legal_entity_ids: tuple[str, ...],
+        request_id: UUID,
+    ) -> LeaveRequestDetailRecord | None: ...

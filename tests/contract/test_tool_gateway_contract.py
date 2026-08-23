@@ -16,10 +16,9 @@ def test_public_error_codes_are_stable_and_have_safe_messages() -> None:
     assert set(SAFE_ERROR_MESSAGES) == set(ToolErrorCode)
 
 
-def test_all_trusted_context_and_release_fields_are_reserved() -> None:
+def test_trusted_context_and_release_fields_except_record_selector_are_reserved() -> None:
     expected = {
         "context_version",
-        "request_id",
         "customer_environment_id",
         "user_id",
         "employee_id",
@@ -35,6 +34,7 @@ def test_all_trusted_context_and_release_fields_are_reserved() -> None:
         "read_only_mode",
     }
     assert expected == RESERVED_ARGUMENT_NAMES
+    assert "request_id" not in RESERVED_ARGUMENT_NAMES
 
 
 def test_safe_messages_contain_no_internal_diagnostics() -> None:

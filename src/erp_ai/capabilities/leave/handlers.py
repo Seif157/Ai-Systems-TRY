@@ -5,9 +5,14 @@ from dataclasses import dataclass
 from pydantic import BaseModel
 
 from erp_ai.capabilities.leave.models import (
+    LEAVE_REQUEST_ENTITY_TYPE,
     GetMyLeaveBalancesInput,
     GetMyLeaveBalancesOutput,
+    GetMyLeaveRequestInput,
+    GetMyLeaveRequestOutput,
     LeaveBalanceItem,
+    LeaveRequestHistoryRecord,
+    LeaveRequestStatusTransition,
     LeaveRequestSummary,
     LeaveRequestSummaryRecord,
     ListMyLeaveRequestsInput,
@@ -23,6 +28,10 @@ class _LeaveBalancesUnavailableError(RuntimeError):
 
 class _LeaveRequestsUnavailableError(RuntimeError):
     """Internal list failure collapsed by the gateway to a safe execution error."""
+
+
+class _LeaveRequestDetailUnavailableError(RuntimeError):
+    """Internal detail failure collapsed to the same safe public failure."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,4 +191,99 @@ class ListMyLeaveRequestsHandler:
                 for record in page.items
             ),
             next_cursor=page.next_cursor,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class GetMyLeaveRequestHandler:
+    """Return one owned request with a validated safe status timeline."""
+
+    provider: LeaveReadProvider
+
+    tool_name = "get_my_leave_request"
+    version = "1.0.0"
+    input_model = GetMyLeaveRequestInput
+    output_model = GetMyLeaveRequestOutput
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.provider, LeaveReadProvider):
+            raise TypeError("provider must implement LeaveReadProvider")
+
+    async def execute(
+        self,
+        context: TrustedRequestContext,
+        arguments: BaseModel,
+    ) -> object:
+        if not isinstance(arguments, GetMyLeaveRequestInput):
+            raise TypeError("unexpected leave request detail input model")
+        if context.employee_id is None:
+            raise _LeaveRequestDetailUnavailableError("employee context is required")
+
+        record = await self.provider.get_my_leave_request(
+            customer_environment_id=context.customer_environment_id,
+            employee_id=context.employee_id,
+            authorized_legal_entity_ids=context.legal_entity_ids,
+            request_id=arguments.request_id,
+        )
+        if record is None:
+            raise _LeaveRequestDetailUnavailableError("leave request unavailable")
+        if record.request_id != arguments.request_id:
+            raise _LeaveRequestDetailUnavailableError("leave request selector mismatch")
+        if record.customer_environment_id != context.customer_environment_id:
+            raise _LeaveRequestDetailUnavailableError("leave request customer mismatch")
+        if str(record.employee_id) != context.employee_id:
+            raise _LeaveRequestDetailUnavailableError("leave request employee mismatch")
+        if str(record.legal_entity_id) not in context.legal_entity_ids:
+            raise _LeaveRequestDetailUnavailableError(
+                "leave request legal entity outside authorized scope"
+            )
+
+        seen_history_ids: set[str] = set()
+        previous: LeaveRequestHistoryRecord | None = None
+        for transition in record.status_history:
+            history_id = str(transition.history_id)
+            if history_id in seen_history_ids:
+                raise _LeaveRequestDetailUnavailableError("duplicate status history")
+            seen_history_ids.add(history_id)
+            if transition.entity_type != LEAVE_REQUEST_ENTITY_TYPE:
+                raise _LeaveRequestDetailUnavailableError("wrong history entity type")
+            if transition.entity_id != record.request_id:
+                raise _LeaveRequestDetailUnavailableError("wrong history entity")
+            if previous is not None:
+                if previous.changed_at > transition.changed_at:
+                    raise _LeaveRequestDetailUnavailableError("history ordering violation")
+                if (
+                    previous.changed_at == transition.changed_at
+                    and previous.history_id.hex > transition.history_id.hex
+                ):
+                    raise _LeaveRequestDetailUnavailableError("history ordering violation")
+                if transition.from_status != previous.to_status:
+                    raise _LeaveRequestDetailUnavailableError("broken history status chain")
+            previous = transition
+
+        if previous is not None and previous.to_status != record.status:
+            raise _LeaveRequestDetailUnavailableError("history final status mismatch")
+
+        return GetMyLeaveRequestOutput(
+            request_id=record.request_id,
+            leave_type_code=record.leave_type_code,
+            leave_type_name=record.leave_type_name,
+            leave_type_name_local=record.leave_type_name_local,
+            start_date=record.start_date,
+            end_date=record.end_date,
+            working_days=record.working_days,
+            is_half_day=record.is_half_day,
+            half_day_period=record.half_day_period,
+            status=record.status,
+            submitted_at=record.submitted_at,
+            updated_at=record.updated_at,
+            status_timeline=tuple(
+                LeaveRequestStatusTransition(
+                    from_status=transition.from_status,
+                    to_status=transition.to_status,
+                    changed_at=transition.changed_at,
+                    reason_code=transition.reason_code,
+                )
+                for transition in record.status_history
+            ),
         )

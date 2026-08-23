@@ -36,9 +36,12 @@ The gateway then verifies descriptor and handler registration, rejects commands,
 trusted-context keys anywhere in nested arguments, validates the handler input, invokes the
 handler, and validates its output. Handler exceptions and invalid output never produce success.
 
-Reserved argument names are the trusted-context fields plus `read_only_mode`. A separately
-reviewed business parameter such as `target_employee_id` is not reserved, but it must still be
-declared by that handler's strict input model and authorized by the future ERP application API.
+Reserved argument names are the trusted-context fields plus `read_only_mode`, except `request_id`.
+That name may be an explicitly declared business-record selector, as it is for
+`get_my_leave_request`; it never replaces the separately supplied trusted correlation request ID.
+Any such selector must be declared by the handler's strict input model and independently scoped by
+the handler and future ERP application API. Undeclared selectors and all other trusted-context
+names still fail closed.
 
 ## Read-only enforcement
 

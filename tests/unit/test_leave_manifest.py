@@ -51,7 +51,18 @@ def test_leave_manifest_matches_governed_contract() -> None:
     assert tool.data_classification is DataClassification.RESTRICTED
     assert tool.audit_action == "leave.balance.read_self"
 
-    request_tool = LEAVE_MANIFEST.tools[1]
+    detail_tool = LEAVE_MANIFEST.tools[1]
+    assert detail_tool.tool_name == "get_my_leave_request"
+    assert detail_tool.version == "1.0.0"
+    assert detail_tool.operation == "read"
+    assert detail_tool.required_permissions_all == ("leave.request.read_self",)
+    assert detail_tool.required_roles_any == ()
+    assert detail_tool.allowed_purposes == ("employee_self_service",)
+    assert detail_tool.requires_employee_context is True
+    assert detail_tool.data_classification is DataClassification.RESTRICTED
+    assert detail_tool.audit_action == "leave.request.detail.read_self"
+
+    request_tool = LEAVE_MANIFEST.tools[2]
     assert request_tool.tool_name == "list_my_leave_requests"
     assert request_tool.version == "1.0.0"
     assert request_tool.operation == "read"
@@ -95,5 +106,6 @@ def test_literal_employee_role_is_not_required(role: str) -> None:
 
     assert tuple(tool.tool_name for tool in decision.model_capabilities[0].tools) == (
         "get_my_leave_balances",
+        "get_my_leave_request",
         "list_my_leave_requests",
     )

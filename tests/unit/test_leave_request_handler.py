@@ -78,6 +78,9 @@ class FakeLeaveRequestProvider:
     async def get_my_leave_balances(self, **kwargs: object) -> object:
         raise AssertionError(f"unexpected balance call: {kwargs}")
 
+    async def get_my_leave_request(self, **kwargs: object) -> object:
+        raise AssertionError(f"unexpected request-detail call: {kwargs}")
+
 
 def run(
     handler: ListMyLeaveRequestsHandler,

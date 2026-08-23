@@ -82,6 +82,17 @@ OpaqueCursor = Annotated[
     BeforeValidator(_validate_opaque_cursor),
     StringConstraints(strict=True, max_length=512),
 ]
+ReasonCode = Annotated[
+    str,
+    BeforeValidator(_strip_text),
+    StringConstraints(
+        strict=True,
+        min_length=1,
+        max_length=50,
+        pattern=r"^[a-z][a-z0-9_]*$",
+    ),
+]
+LEAVE_REQUEST_ENTITY_TYPE = "leave_request"
 
 
 class GetMyLeaveBalancesInput(BaseModel):
@@ -132,6 +143,24 @@ class ListMyLeaveRequestsInput(BaseModel):
         if (self.start_to - self.start_from).days > 366:
             raise ValueError("explicit date range must not exceed 366 days")
         return self
+
+
+class GetMyLeaveRequestInput(BaseModel):
+    """Public selector for one linked employee leave request."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    request_id: UUID
+
+    @field_validator("request_id", mode="before")
+    @classmethod
+    def parse_request_id(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            try:
+                return UUID(value)
+            except ValueError as error:
+                raise ValueError("request_id must be a valid UUID") from error
+        return value
 
 
 class LeaveBalanceRecord(BaseModel):
@@ -289,6 +318,46 @@ class LeaveRequestPageRecord(BaseModel):
         return value
 
 
+class LeaveRequestHistoryRecord(BaseModel):
+    """Internal append-only workflow transition used for integrity verification."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    history_id: UUID
+    entity_type: NonEmptyMetadata
+    entity_id: UUID
+    from_status: LeaveRequestStatus | None
+    to_status: LeaveRequestStatus
+    changed_at: datetime
+    reason_code: ReasonCode | None = None
+
+    @field_validator("from_status", "to_status", mode="before")
+    @classmethod
+    def validate_history_status(cls, value: Any) -> Any:
+        return LeaveRequestStatus(value) if isinstance(value, str) else value
+
+    @field_validator("changed_at")
+    @classmethod
+    def validate_changed_at(cls, value: datetime) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError("changed_at must be timezone-aware")
+        return value
+
+
+class LeaveRequestDetailRecord(LeaveRequestSummaryRecord):
+    """Internal customer-scoped request detail and safe workflow subset."""
+
+    customer_environment_id: Identifier
+    status_history: tuple[LeaveRequestHistoryRecord, ...]
+
+    @field_validator("status_history", mode="before")
+    @classmethod
+    def normalize_status_history(cls, value: Any) -> Any:
+        if isinstance(value, list):
+            return tuple(value)
+        return value
+
+
 class LeaveRequestSummary(BaseModel):
     """Explicit safe projection of one linked employee leave request."""
 
@@ -307,6 +376,37 @@ class LeaveRequestSummary(BaseModel):
     submitted_at: datetime
     updated_at: datetime | None
     working_days_calculation_version: NonEmptyMetadata
+
+
+class LeaveRequestStatusTransition(BaseModel):
+    """Safe allowlisted workflow transition without internal identifiers or text."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    from_status: LeaveRequestStatus | None
+    to_status: LeaveRequestStatus
+    changed_at: datetime
+    reason_code: ReasonCode | None = None
+
+
+class GetMyLeaveRequestOutput(BaseModel):
+    """Safe allowlisted detail for one linked employee leave request."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    request_id: UUID
+    leave_type_code: LeaveTypeCode
+    leave_type_name: LeaveTypeName
+    leave_type_name_local: LeaveTypeName
+    start_date: date
+    end_date: date
+    working_days: WorkingDays
+    is_half_day: bool
+    half_day_period: HalfDayPeriod | None
+    status: LeaveRequestStatus
+    submitted_at: datetime
+    updated_at: datetime | None
+    status_timeline: tuple[LeaveRequestStatusTransition, ...]
 
 
 class ListMyLeaveRequestsOutput(BaseModel):

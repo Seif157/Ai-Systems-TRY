@@ -26,7 +26,6 @@ from erp_ai.tools.models import (
 RESERVED_ARGUMENT_NAMES = frozenset(
     {
         "context_version",
-        "request_id",
         "customer_environment_id",
         "user_id",
         "employee_id",

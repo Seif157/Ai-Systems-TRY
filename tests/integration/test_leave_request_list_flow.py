@@ -68,6 +68,9 @@ class FakeLeaveRequestProvider:
     async def get_my_leave_balances(self, **kwargs: object) -> object:
         raise AssertionError(f"unexpected balance call: {kwargs}")
 
+    async def get_my_leave_request(self, **kwargs: object) -> object:
+        raise AssertionError(f"unexpected request-detail call: {kwargs}")
+
 
 class RecordingAuditSink:
     def __init__(self) -> None:
@@ -355,6 +358,9 @@ def test_two_provider_pages_have_no_duplicate_or_skipped_requests() -> None:
 
         async def get_my_leave_balances(self, **kwargs: object) -> object:
             raise AssertionError(f"unexpected balance call: {kwargs}")
+
+        async def get_my_leave_request(self, **kwargs: object) -> object:
+            raise AssertionError(f"unexpected request-detail call: {kwargs}")
 
     provider = TwoPageProvider()
     tool_gateway = ReadToolGateway(
