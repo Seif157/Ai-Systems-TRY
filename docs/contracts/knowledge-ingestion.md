@@ -1,8 +1,9 @@
 # Knowledge ingestion preparation contract
 
 This package prepares already-normalized, explicitly approved knowledge documents for a future
-index writer. It does not discover files, parse source formats, generate embeddings, contact a
-provider, or mutate an index.
+index writer. It does not discover files, generate embeddings, contact a provider, or mutate an
+index. The separate [Markdown source adapter](markdown-source-adapter.md) reads only explicit
+catalog entries and supplies validated drafts to this package.
 
 ## Accepted scope
 
@@ -37,7 +38,9 @@ Violations reject the entire preparation; content is never silently dropped.
 Canonical compact UTF-8 JSON and standard-library SHA-256 produce separate normalized-content and
 governance hashes plus a combined document fingerprint. Governance includes version, namespace,
 tenant scope, modules, permissions, purposes, legal entities, classification, effective dates, and
-approval metadata. Content or governance changes therefore change the combined fingerprint.
+approval metadata. Optional path-free source provenance records the catalog version, raw hash,
+parser name/major version, and adapter contract version. Content, governance, or parsing-contract
+changes therefore change the combined fingerprint.
 
 Chunk and citation identifiers derive from the fingerprint and ordinal. They expose no customer
 identifier, path, filename, or content. Deterministic citation IDs are opaque references—not
@@ -48,6 +51,6 @@ governance conflicts; older versions fail; a greater SemVer records the existing
 one superseded. First preparation cannot claim an unknown predecessor because supersession is
 derived only from an injected validated existing manifest. No deletion or replacement occurs.
 
-Future approved source adapters own parsing and approval provenance. A future index writer owns
+Approved source adapters own parsing and approval provenance. A future index writer owns
 customer isolation, atomic publication, supersession, rollback, and deletion. Neither responsibility
 exists in this preparation step.

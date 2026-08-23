@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from uuid import UUID
 
 from pydantic import (
@@ -29,6 +29,18 @@ Digest = Annotated[str, StringConstraints(strict=True, pattern=r"^[0-9a-f]{64}$"
 OpaquePreparedId = Annotated[
     str, StringConstraints(strict=True, pattern=r"^(?:chk|cite)_[0-9a-f]{32}$")
 ]
+
+
+class SourceProvenance(BaseModel):
+    """Internal, path-free provenance that makes adapter behavior fingerprint-visible."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    catalog_version: Literal[1]
+    raw_source_sha256: Digest
+    parser_name: Literal["markdown-it-py"]
+    parser_major_version: int = Field(strict=True, ge=1)
+    adapter_contract_version: Literal[1]
 
 
 def _tuple(value: Any) -> Any:
@@ -84,6 +96,7 @@ class KnowledgeDocumentDraft(BaseModel):
     effective_to: datetime | None = None
     approval_reference: Identifier
     approved_at: datetime
+    source_provenance: SourceProvenance | None = None
     sections: tuple[KnowledgeSection, ...] = Field(min_length=1)
 
     @field_validator(
@@ -156,6 +169,7 @@ class PreparedDocumentManifest(BaseModel):
     namespace: Code
     source_type: KnowledgeSourceType
     customer_environment_id: Identifier | None
+    source_provenance: SourceProvenance | None
     normalized_content_sha256: Digest
     governance_sha256: Digest
     document_fingerprint: Digest

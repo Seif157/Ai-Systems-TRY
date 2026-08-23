@@ -5,6 +5,7 @@ description = "Entitlement-aware AI platform for modular ERP capabilities"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
+    "markdown-it-py>=4.2.0,<5.0.0",
     "pydantic>=2.12.5,<3",
     "tzdata>=2025.3",
 ]

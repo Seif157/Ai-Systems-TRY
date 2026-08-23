@@ -8,6 +8,7 @@ from erp_ai.knowledge.ingestion.models import (
     PreparationDisposition,
     PreparedKnowledgeBundle,
     PreparedKnowledgeChunk,
+    SourceProvenance,
 )
 from erp_ai.knowledge.ingestion.service import prepare_knowledge_document
 
@@ -19,5 +20,6 @@ __all__ = [
     "PreparationDisposition",
     "PreparedKnowledgeBundle",
     "PreparedKnowledgeChunk",
+    "SourceProvenance",
     "prepare_knowledge_document",
 ]

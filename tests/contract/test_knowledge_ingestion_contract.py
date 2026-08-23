@@ -23,6 +23,7 @@ def test_draft_has_only_normalized_approved_document_fields() -> None:
         "effective_to",
         "approval_reference",
         "approved_at",
+        "source_provenance",
         "sections",
     }
     assert {"path", "url", "embedding", "database_row", "sql"}.isdisjoint(

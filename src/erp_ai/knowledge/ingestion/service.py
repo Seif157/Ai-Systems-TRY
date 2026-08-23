@@ -138,6 +138,11 @@ def prepare_knowledge_document(
         "effective_to": _iso(draft.effective_to),
         "approval_reference": draft.approval_reference,
         "approved_at": _iso(draft.approved_at),
+        "source_provenance": (
+            draft.source_provenance.model_dump(mode="json")
+            if draft.source_provenance is not None
+            else None
+        ),
     }
     content_hash = _sha256(content_payload)
     governance_hash = _sha256(governance_payload)
@@ -178,6 +183,7 @@ def prepare_knowledge_document(
         namespace=draft.namespace,
         source_type=draft.source_type,
         customer_environment_id=draft.customer_environment_id,
+        source_provenance=draft.source_provenance,
         normalized_content_sha256=content_hash,
         governance_sha256=governance_hash,
         document_fingerprint=fingerprint,
