@@ -7,6 +7,7 @@ requires-python = ">=3.12,<3.15"
 dependencies = [
     "markdown-it-py>=4.2.0,<5.0.0",
     "pydantic>=2.12.5,<3",
+    "psycopg[pool]>=3.3.4,<3.4",
     "tzdata>=2025.3",
 ]
 
@@ -15,6 +16,7 @@ dev = [
     "mypy>=1.19.1,<2",
     "pytest>=9.0.2,<10",
     "pytest-cov>=7.0.0,<8",
+    "psycopg-binary>=3.3.4,<3.4",
     "ruff>=0.14.14,<0.15",
 ]
 
@@ -28,6 +30,7 @@ packages = ["src/erp_ai"]
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers --cov=erp_ai --cov-report=term-missing --cov-fail-under=100"
 testpaths = ["tests"]
+markers = ["postgres: requires the explicit ERP_AI_TEST_ADMIN_DSN PostgreSQL service"]
 
 [tool.ruff]
 line-length = 100

@@ -7,9 +7,9 @@ persists one idempotent operation result, and writes one audit-outbox event. Fai
 those changes visible, so readers observe either the complete old generation or the complete new
 one.
 
-This package defines contracts and validation only. It has no PostgreSQL, pgvector, SQL, embedding,
-search, network, or production storage adapter. The atomic in-memory repository exists under tests
-only; a future adapter must actually provide the Protocol's transaction guarantee.
+The [PostgreSQL repository](postgres-knowledge-repository.md) now implements this transaction in a
+separate customer AI database. The atomic in-memory repository remains test-only. Embeddings,
+vector columns/search, network APIs, and garbage collection remain absent.
 
 ## Trusted scope and validation
 

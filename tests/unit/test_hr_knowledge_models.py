@@ -4,8 +4,12 @@ from zoneinfo import ZoneInfo
 import pytest
 from pydantic import ValidationError
 
-from erp_ai.capabilities.hr_knowledge import SearchHrKnowledgeInput, SearchHrKnowledgeOutput
-from erp_ai.knowledge import KnowledgeMatch, KnowledgeRetrievalRequest
+from erp_ai.capabilities.hr_knowledge import (
+    KnowledgeExcerpt,
+    SearchHrKnowledgeInput,
+    SearchHrKnowledgeOutput,
+)
+from erp_ai.knowledge import KnowledgeMatch, KnowledgeRetrievalRequest, KnowledgeSourceType
 
 NOW = datetime(2026, 8, 23, 10, 0, tzinfo=ZoneInfo("Africa/Cairo"))
 
@@ -26,7 +30,7 @@ def match_data(**overrides: object) -> dict[str, object]:
         "language": "en",
         "title": "Employee handbook",
         "section": "Leave",
-        "document_version": 1,
+        "document_version": "1.0.0",
         "effective_from": NOW,
         "effective_to": None,
         "content": "Approved policy excerpt.",
@@ -81,7 +85,7 @@ def test_public_input_rejects_filters_and_trusted_context(extra: str) -> None:
         ("relevance_score", float("inf")),
         ("relevance_score", -0.1),
         ("relevance_score", 1.1),
-        ("document_version", 0),
+        ("document_version", "1.0"),
         ("effective_from", datetime(2026, 1, 1)),
         ("effective_to", datetime(2026, 1, 1)),
         ("content", "x" * 4001),
@@ -137,3 +141,42 @@ def test_public_output_is_immutable() -> None:
     output = SearchHrKnowledgeOutput(excerpts=())
     with pytest.raises(ValidationError):
         output.excerpts = ()  # type: ignore[misc]
+
+
+@pytest.mark.parametrize("version", ("1", "1.0", "01.0.0", "1.0.0-alpha", "1.0.0+build", " 1.0.0 "))
+def test_document_version_rejects_noncanonical_semver_at_internal_and_public_boundaries(
+    version: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        KnowledgeMatch.model_validate(match_data(document_version=version))
+    with pytest.raises(ValidationError):
+        KnowledgeExcerpt.model_validate(
+            {
+                "citation_id": "cite_1",
+                "title": "Policy",
+                "section": "Leave",
+                "language": "en",
+                "source_type": KnowledgeSourceType.CUSTOMER_POLICY,
+                "document_version": version,
+                "content": "Approved excerpt",
+            }
+        )
+
+
+def test_exact_document_versions_remain_distinct_in_public_excerpts() -> None:
+    versions = ("1.2.3", "1.9.0", "12.34.567")
+    excerpts = tuple(
+        KnowledgeExcerpt.model_validate(
+            {
+                "citation_id": f"cite_{index}",
+                "title": "Policy",
+                "section": "Leave",
+                "language": "en",
+                "source_type": KnowledgeSourceType.CUSTOMER_POLICY,
+                "document_version": version,
+                "content": "Approved excerpt",
+            }
+        )
+        for index, version in enumerate(versions)
+    )
+    assert tuple(excerpt.document_version for excerpt in excerpts) == versions

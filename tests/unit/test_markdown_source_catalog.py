@@ -7,13 +7,15 @@ from pydantic import ValidationError
 from erp_ai.knowledge.sources import parse_source_catalog
 
 
-def catalog_bytes(*, version: int = 1, path: str = "product/hr/leave.md") -> bytes:
+def catalog_bytes(
+    *, version: int = 1, path: str = "product/hr/leave.md", document_version: str = "1.0.0"
+) -> bytes:
     return f'''catalog_version = {version}
 [[entries]]
 path = "{path}"
 raw_sha256 = "{"a" * 64}"
 document_id = "00000000-0000-0000-0000-000000000001"
-document_version = "1.0.0"
+document_version = "{document_version}"
 namespace = "hr"
 source_type = "product_documentation"
 title = "Leave guide"
@@ -43,6 +45,15 @@ def test_catalog_parses_strict_immutable_metadata() -> None:
 def test_catalog_rejects_unsupported_version(version: int) -> None:
     with pytest.raises(ValidationError):
         parse_source_catalog(catalog_bytes(version=version))
+
+
+@pytest.mark.parametrize(
+    "document_version",
+    ("1", "1.0", "01.0.0", "1.0.0-alpha", "1.0.0+build", " 1.0.0 "),
+)
+def test_catalog_rejects_noncanonical_document_version(document_version: str) -> None:
+    with pytest.raises(ValidationError):
+        parse_source_catalog(catalog_bytes(document_version=document_version))
 
 
 @pytest.mark.parametrize(

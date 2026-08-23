@@ -23,7 +23,7 @@ def citation(citation_id: str = "cite_1") -> PublicCitation:
         section="Leave",
         language="en",
         source_type=KnowledgeSourceType.CUSTOMER_POLICY,
-        document_version=1,
+        document_version="1.0.0",
     )
 
 
@@ -49,6 +49,26 @@ def test_public_models_are_strict_frozen_and_allowlisted() -> None:
         PublicChatSuccess(
             answer="Answer", response_language="en", citations=(citation(), citation())
         )
+
+
+@pytest.mark.parametrize("version", ("1", "1.0", "01.0.0", "1.0.0-alpha", "1.0.0+build", " 1.0.0 "))
+def test_public_citation_rejects_noncanonical_document_versions(version: str) -> None:
+    with pytest.raises(ValidationError):
+        PublicCitation(
+            citation_id="cite_1",
+            title="Policy",
+            section="Leave",
+            language="en",
+            source_type=KnowledgeSourceType.CUSTOMER_POLICY,
+            document_version=version,
+        )
+
+
+def test_public_citation_preserves_exact_document_version() -> None:
+    assert citation().document_version == "1.0.0"
+    assert citation().model_copy(update={"document_version": "12.34.567"}).document_version == (
+        "12.34.567"
+    )
 
 
 def test_model_tool_arguments_and_schema_are_recursively_immutable_json() -> None:
@@ -131,5 +151,5 @@ def test_answers_limits_and_unknown_fields_are_validated() -> None:
             section="Leave",
             language="en",
             source_type=KnowledgeSourceType.CUSTOMER_POLICY,
-            document_version=1,
+            document_version="1.0.0",
         )

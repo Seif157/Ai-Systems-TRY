@@ -66,7 +66,7 @@ def match(**overrides: object) -> KnowledgeMatch:
         "language": "en",
         "title": "Handbook",
         "section": "Leave",
-        "document_version": 2,
+        "document_version": "2.0.0",
         "effective_from": NOW - timedelta(days=1),
         "effective_to": NOW + timedelta(days=1),
         "content": "Use the employee portal.",

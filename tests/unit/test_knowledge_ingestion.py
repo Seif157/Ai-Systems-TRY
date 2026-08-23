@@ -16,6 +16,14 @@ from erp_ai.knowledge.ingestion import (
 from erp_ai.knowledge.ingestion.chunking import _overlap_suffix, chunk_sections
 
 NOW = datetime(2026, 8, 23, 10, 0, tzinfo=ZoneInfo("Africa/Cairo"))
+
+
+@pytest.mark.parametrize("version", ("1", "1.0", "01.0.0", "1.0.0-alpha", "1.0.0+build", " 1.0.0 "))
+def test_draft_rejects_noncanonical_document_versions(version: str) -> None:
+    with pytest.raises(ValidationError):
+        draft(document_version=version)
+
+
 DOCUMENT_ID = UUID("11111111-1111-4111-8111-111111111111")
 
 

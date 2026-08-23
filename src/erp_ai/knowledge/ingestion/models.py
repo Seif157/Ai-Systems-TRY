@@ -15,11 +15,12 @@ from pydantic import (
 )
 
 from erp_ai.capabilities import DataClassification
-from erp_ai.capabilities.models import Code, PolicyCode, Version
+from erp_ai.capabilities.models import Code, PolicyCode
 from erp_ai.context.models import Identifier
 from erp_ai.knowledge import KnowledgeSourceType
 from erp_ai.knowledge.ingestion.normalization import normalize_text
 from erp_ai.knowledge.models import LanguageCode
+from erp_ai.types import CanonicalSemVer
 
 SectionKey = Annotated[
     str,
@@ -81,7 +82,7 @@ class KnowledgeDocumentDraft(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     document_id: UUID
-    document_version: Version
+    document_version: CanonicalSemVer
     namespace: Code
     source_type: KnowledgeSourceType
     customer_environment_id: Identifier | None
@@ -151,7 +152,7 @@ class ExistingDocumentManifest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     document_id: UUID
-    document_version: Version
+    document_version: CanonicalSemVer
     document_fingerprint: Digest
 
 
@@ -165,7 +166,7 @@ class PreparedDocumentManifest(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
     document_id: UUID
-    document_version: Version
+    document_version: CanonicalSemVer
     namespace: Code
     source_type: KnowledgeSourceType
     customer_environment_id: Identifier | None
@@ -173,7 +174,7 @@ class PreparedDocumentManifest(BaseModel):
     normalized_content_sha256: Digest
     governance_sha256: Digest
     document_fingerprint: Digest
-    supersedes_version: Version | None
+    supersedes_version: CanonicalSemVer | None
 
 
 class PreparedKnowledgeChunk(BaseModel):
@@ -182,7 +183,7 @@ class PreparedKnowledgeChunk(BaseModel):
     chunk_id: OpaquePreparedId
     citation_id: OpaquePreparedId
     document_id: UUID
-    document_version: Version
+    document_version: CanonicalSemVer
     chunk_ordinal: int = Field(strict=True, ge=0)
     namespace: Code
     section_key: SectionKey

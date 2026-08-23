@@ -110,7 +110,7 @@ Every indexed chunk requires:
   "module_code": "hr",
   "subdomain": "leave",
   "document_id": "uuid",
-  "document_version": 3,
+  "document_version": "3.0.0",
   "legal_entity_ids": ["uuid"],
   "country_codes": ["EG"],
   "allowed_roles": ["employee", "manager", "hr"],
@@ -172,4 +172,3 @@ Metadata filters are applied before retrieval. The model cannot widen them. Supe
 - Synthetic canary records belonging to another customer or role are never returned.
 
 Release criterion: zero authorization or cross-customer leaks; all material actions are auditable and idempotent.
-

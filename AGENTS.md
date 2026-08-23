@@ -23,3 +23,9 @@ authorization, and transactional data remain behind typed ERP application APIs.
   `uv run ruff format --check .`, and `uv run mypy src` before handing off changes.
 - Keep public contracts strict: reject unknown fields and add negative authorization tests.
 - Do not add empty capability directories; create a capability only with its implementation.
+- PostgreSQL integration tests are opt-in locally: start `docker-compose.postgres-test.yml`, set
+  `ERP_AI_TEST_ADMIN_DSN` to that synthetic service, set `ERP_AI_REQUIRE_POSTGRES_TESTS=1`, and run
+  `uv run pytest -m postgres --no-cov` for the targeted database suite. Required mode must never
+  skip; the full suite remains the coverage gate.
+- Never derive a knowledge DSN/database name from customer input or log connection details. Run
+  packaged migrations only through the explicit administrative boundary, never service startup.

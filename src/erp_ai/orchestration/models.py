@@ -19,6 +19,7 @@ from erp_ai.context.models import Identifier
 from erp_ai.knowledge import KnowledgeSourceType
 from erp_ai.knowledge.models import DisplayText, LanguageCode
 from erp_ai.tools import PublicToolFailure, PublicToolSuccess
+from erp_ai.types import CanonicalSemVer
 
 Answer = Annotated[
     str,
@@ -74,7 +75,7 @@ class PublicCitation(BaseModel):
     section: DisplayText
     language: LanguageCode
     source_type: KnowledgeSourceType
-    document_version: int = Field(strict=True, ge=1)
+    document_version: CanonicalSemVer
 
 
 class PublicChatSuccess(BaseModel):

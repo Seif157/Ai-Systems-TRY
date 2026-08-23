@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_vali
 from erp_ai.context.models import Identifier
 from erp_ai.knowledge import KnowledgeSourceType
 from erp_ai.knowledge.models import DisplayText, KnowledgeText, LanguageCode
+from erp_ai.types import CanonicalSemVer
 
 
 def _validate_query(value: Any) -> Any:
@@ -50,7 +51,7 @@ class KnowledgeExcerpt(BaseModel):
     section: DisplayText
     language: LanguageCode
     source_type: KnowledgeSourceType
-    document_version: int = Field(strict=True, ge=1)
+    document_version: CanonicalSemVer
     content: KnowledgeText = Field(repr=False)
     content_trust: Literal["untrusted_knowledge_excerpt"] = "untrusted_knowledge_excerpt"
 

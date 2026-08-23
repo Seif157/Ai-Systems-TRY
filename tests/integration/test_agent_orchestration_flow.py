@@ -161,7 +161,7 @@ def knowledge_match(citation_id: str, chunk_id: str, *, title: str, score: float
         language="en",
         title=title,
         section="Leave",
-        document_version=1,
+        document_version="1.0.0",
         effective_from=NOW - timedelta(days=1),
         content="Untrusted retrieved policy content.",
         relevance_score=score,

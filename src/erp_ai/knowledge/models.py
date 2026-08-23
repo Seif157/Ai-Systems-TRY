@@ -16,6 +16,7 @@ from pydantic import (
 
 from erp_ai.capabilities import DataClassification
 from erp_ai.context.models import Code, Identifier, PolicyCode
+from erp_ai.types import CanonicalSemVer
 
 
 def _strip_text(value: Any) -> Any:
@@ -115,7 +116,7 @@ class KnowledgeMatch(BaseModel):
     language: LanguageCode
     title: DisplayText
     section: DisplayText
-    document_version: int = Field(strict=True, ge=1)
+    document_version: CanonicalSemVer
     effective_from: datetime
     effective_to: datetime | None = None
     content: KnowledgeText = Field(repr=False)

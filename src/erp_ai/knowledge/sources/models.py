@@ -15,11 +15,12 @@ from pydantic import (
 )
 
 from erp_ai.capabilities import DataClassification
-from erp_ai.capabilities.models import Code, PolicyCode, Version
+from erp_ai.capabilities.models import Code, PolicyCode
 from erp_ai.context.models import Identifier
 from erp_ai.knowledge import KnowledgeSourceType
 from erp_ai.knowledge.ingestion.models import Digest
 from erp_ai.knowledge.models import LanguageCode
+from erp_ai.types import CanonicalSemVer
 
 RelativeMarkdownPath = Annotated[str, StringConstraints(strict=True, min_length=1, max_length=500)]
 
@@ -39,7 +40,7 @@ class MarkdownSourceEntry(BaseModel):
     path: RelativeMarkdownPath
     raw_sha256: Digest
     document_id: UUID
-    document_version: Version
+    document_version: CanonicalSemVer
     namespace: Code
     source_type: KnowledgeSourceType
     customer_environment_id: Identifier | None = None

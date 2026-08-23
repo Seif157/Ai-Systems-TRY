@@ -122,7 +122,7 @@ def match(**overrides: object) -> KnowledgeMatch:
         "language": "en",
         "title": "Leave policy",
         "section": "Eligibility",
-        "document_version": 3,
+        "document_version": "3.0.0",
         "effective_from": NOW - timedelta(days=1),
         "effective_to": None,
         "content": "Employees may request approved leave.",
