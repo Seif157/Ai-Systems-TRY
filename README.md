@@ -9,7 +9,9 @@ The platform uses one shared AI core and a separate capability package for each 
 > production contracts, `get_my_employee_profile`, `get_my_leave_balances`, and
 > `list_my_leave_requests` plus `get_my_leave_request`, now prove complete
 > authorized execution paths through provider Protocols and safe output models. No real ERP
-> provider, AI, RAG, or external integration exists yet. The first broader production slice
+> provider, model, vector-store, ingestion, or external integration exists yet. The first secure
+> HR knowledge-search contract now proves module-scoped pre-filtering and post-validation using
+> only a provider Protocol and test fakes. The first broader production slice
 > remains **HR Core + Leave**.
 
 ## Contents
@@ -84,7 +86,7 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 | HR database and AI contract | Documented; integration blocked | HR schema documentation exists; an authoritative typed ERP API contract and owner-confirmed module mapping are still required |
 | AI gateway and orchestrator | Planned | Implement before module expansion |
 | Remaining HR Core + Leave read tools | Next | Additional first-release reads |
-| HR policy RAG | Next | Approved documents only |
+| HR knowledge retrieval | Implemented contract | Module-scoped approved product/policy excerpts, trusted pre-filter scope, post-validation, safe citations, and untrusted-content marking; no real retrieval provider |
 | HR write command | Planned | Leave request with preview, confirmation, and idempotency |
 | Additional ERP capabilities | Planned | Added independently after the first vertical slice passes security gates |
 | Cross-module orchestration | Planned | Enabled only when all required modules and permissions are available |

@@ -21,6 +21,11 @@ These values belong to different namespaces and must not be compared, joined, or
 automatically. In particular, the RAG namespace `hr` and subdomain `leave` are not proof that
 either the `hr_core` or `leave` AI entitlement is enabled.
 
+The production `hr_knowledge` capability therefore requires the canonical `hr_core` entitlement
+while sending the fixed `hr` namespace to its retrieval provider. Every match separately declares
+all canonical AI entitlements it requires. A Leave match requires `leave`; this is validated from
+trusted context and is never inferred from the query or the namespace.
+
 The database defines `erp_module_installations.module_code` but does not provide its canonical
 production values. A future trusted entitlement resolver must map raw ERP installation codes to
 canonical AI entitlement codes through an explicit, allowlisted mapping. Unknown raw codes must

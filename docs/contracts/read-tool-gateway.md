@@ -78,6 +78,11 @@ tool name and version, manifest audit action and classification, outcome, intern
 trusted purpose. It contains no raw arguments, output, employee ID, roles, permissions, enabled
 modules, or legal-entity IDs.
 
+For knowledge retrieval, approved customer/user/purpose fields are governance metadata rather than
+retrieval payload. Query text, excerpts, display metadata, citations, document/chunk identifiers,
+scores, storage or vector metadata, provider exceptions, and detailed denial information are
+prohibited. The internal reason remains a fixed coarse gateway code.
+
 The gateway awaits exactly one `ToolAuditSink.record(event)` call before returning every public
 success or failure. There is no default or no-op sink. If recording raises, the gateway performs no
 retry, withholds any successful handler output, and returns a generic `AUDIT_UNAVAILABLE` public
