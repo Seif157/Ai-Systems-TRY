@@ -51,6 +51,8 @@ governance conflicts; older versions fail; a greater SemVer records the existing
 one superseded. First preparation cannot claim an unknown predecessor because supersession is
 derived only from an injected validated existing manifest. No deletion or replacement occurs.
 
-Approved source adapters own parsing and approval provenance. A future index writer owns
-customer isolation, atomic publication, supersession, rollback, and deletion. Neither responsibility
-exists in this preparation step.
+Approved source adapters own parsing and approval provenance. The separate
+[index-publication contract](knowledge-index-publication.md) now owns customer-scoped immutable
+generations, deterministic manifests, atomic activation/rollback, snapshots, and a transactional
+audit outbox. A future production repository owns their durable implementation and deletion. None
+of those responsibilities exists in this preparation step.

@@ -60,6 +60,8 @@ leave, payroll, or other transactional ERP data must continue through typed perm
 tools. There is no ingestion, embedding, vector database, network, filesystem, or SQL integration
 in the current implementation; tests inject in-memory fake providers.
 
-The separate ingestion-preparation contract can normalize, govern, fingerprint, and deterministically
-chunk an already-approved in-memory document. Preparation is not indexing: retrieval storage,
-embeddings, publication, supersession, and deletion remain future index-writer responsibilities.
+The separate ingestion-preparation contract normalizes, governs, fingerprints, and chunks approved
+documents. The index-publication contract atomically activates complete customer generations and
+returns an immutable snapshot. A future retrieval adapter must acquire one snapshot and bind the
+entire query to its generation ID; it must not reread the active pointer midway. Retrieval storage,
+embeddings, query execution, and deletion remain future provider responsibilities.
