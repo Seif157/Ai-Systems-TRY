@@ -96,6 +96,7 @@ class RetrievalEvaluationCase(BaseModel):
     case_id: Identifier
     query: KnowledgeText = Field(repr=False)
     language_slice: EvaluationLanguageSlice
+    partition: Literal["calibration", "holdout"]
     authorization_scope: EvaluationAuthorizationScope = Field(repr=False)
     relevant_items: tuple[GradedRelevantItem, ...] = Field(repr=False)
     forbidden_result_ids: tuple[Identifier, ...] = Field(repr=False)
@@ -159,6 +160,9 @@ class RetrievalCandidate(BaseModel):
     candidate_id: Code
     candidate_type: CandidateType
     embedding_profile_sha256: Digest | None = Field(default=None, repr=False)
+    semantic_policy_sha256: Digest | None = Field(default=None, repr=False)
+    embedding_resource_policy_sha256: Digest | None = Field(default=None, repr=False)
+    embedding_runtime_identity_sha256: Digest | None = Field(default=None, repr=False)
 
     @field_validator("candidate_type", mode="before")
     @classmethod
@@ -171,6 +175,20 @@ class RetrievalCandidate(BaseModel):
             self.embedding_profile_sha256 is not None
         ):
             raise ValueError("only semantic candidates require an embedding profile digest")
+        if (self.candidate_type is CandidateType.SEMANTIC) != (
+            self.semantic_policy_sha256 is not None
+        ):
+            raise ValueError("only semantic candidates require a semantic policy digest")
+        if (self.candidate_type is CandidateType.SEMANTIC) != (
+            self.embedding_resource_policy_sha256 is not None
+        ):
+            raise ValueError("only semantic candidates require an embedding resource policy digest")
+        if (self.candidate_type is CandidateType.SEMANTIC) != (
+            self.embedding_runtime_identity_sha256 is not None
+        ):
+            raise ValueError(
+                "only semantic candidates require an embedding runtime identity digest"
+            )
         return self
 
 

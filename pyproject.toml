@@ -5,6 +5,7 @@ description = "Entitlement-aware AI platform for modular ERP capabilities"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
+    "httpx>=0.28.1,<0.29",
     "markdown-it-py>=4.2.0,<5.0.0",
     "pydantic>=2.12.5,<3",
     "psycopg[pool]>=3.3.4,<3.4",
@@ -30,7 +31,10 @@ packages = ["src/erp_ai"]
 [tool.pytest.ini_options]
 addopts = "--strict-config --strict-markers --cov=erp_ai --cov-report=term-missing --cov-fail-under=100"
 testpaths = ["tests"]
-markers = ["postgres: requires the explicit ERP_AI_TEST_ADMIN_DSN PostgreSQL service"]
+markers = [
+    "postgres: requires the explicit ERP_AI_TEST_ADMIN_DSN PostgreSQL service",
+    "local_embedding: requires the explicit local TEI service",
+]
 
 [tool.ruff]
 line-length = 100

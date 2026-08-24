@@ -49,6 +49,7 @@ def evaluation_case(**overrides: object) -> RetrievalEvaluationCase:
         "case_id": "case_english_policy",
         "query": "synthetic annual leave policy",
         "language_slice": "english",
+        "partition": "calibration",
         "authorization_scope": authorization_scope(),
         "relevant_items": (relevant(),),
         "forbidden_result_ids": ("cite_forbidden",),

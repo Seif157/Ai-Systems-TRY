@@ -26,6 +26,11 @@ class EmbeddingStorageRepresentation(str, Enum):
     FLOAT32 = "float32"
 
 
+class EmbeddingInputKind(str, Enum):
+    DOCUMENT = "document"
+    QUERY = "query"
+
+
 def _canonical_json_digest(value: object) -> str:
     raw = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(raw).hexdigest()
@@ -58,6 +63,9 @@ class EmbeddingProfile(BaseModel):
     distance_metric: Literal[EmbeddingDistanceMetric.COSINE]
     storage_representation: Literal[EmbeddingStorageRepresentation.FLOAT32]
     input_normalization_version: int = Field(strict=True, ge=1)
+    document_transform_version: int = Field(strict=True, ge=1)
+    query_transform_version: int = Field(strict=True, ge=1)
+    query_instruction: str = Field(min_length=1, repr=False)
     allowed_data_classifications: tuple[DataClassification, ...] = Field(min_length=1, repr=False)
 
     @field_validator("allowed_data_classifications", mode="before")
@@ -82,6 +90,9 @@ class EmbeddingProfile(BaseModel):
                 "dimensions": self.dimensions,
                 "distance_metric": self.distance_metric.value,
                 "input_normalization_version": self.input_normalization_version,
+                "document_transform_version": self.document_transform_version,
+                "query_transform_version": self.query_transform_version,
+                "query_instruction": self.query_instruction,
                 "model_id": self.model_id,
                 "model_revision": self.model_revision,
                 "profile_id": self.profile_id,
@@ -98,6 +109,12 @@ class EmbeddingInput(BaseModel):
     text: KnowledgeText = Field(repr=False)
     content_sha256: Digest
     data_classification: DataClassification
+    input_kind: EmbeddingInputKind
+
+    @field_validator("input_kind", mode="before")
+    @classmethod
+    def parse_input_kind(cls, value: Any) -> Any:
+        return EmbeddingInputKind(value)
 
 
 class EmbeddingVector(BaseModel):

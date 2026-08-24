@@ -1,5 +1,11 @@
 """Deterministic offline knowledge-retrieval evaluation."""
 
+from erp_ai.knowledge.evaluation.calibration import (
+    CalibrationCaseObservation,
+    CalibrationScoredResult,
+    SemanticThresholdSelection,
+    select_semantic_threshold,
+)
 from erp_ai.knowledge.evaluation.models import (
     CandidateType,
     EvaluationAuthorizationScope,
@@ -18,6 +24,8 @@ from erp_ai.knowledge.evaluation.models import (
 from erp_ai.knowledge.evaluation.service import RetrievalEvaluationService
 
 __all__ = [
+    "CalibrationCaseObservation",
+    "CalibrationScoredResult",
     "CandidateType",
     "EvaluationAuthorizationScope",
     "EvaluationCaseResult",
@@ -32,4 +40,6 @@ __all__ = [
     "RetrievalEvaluationService",
     "RetrievalEvaluationSuite",
     "RetrievalMetricSummary",
+    "SemanticThresholdSelection",
+    "select_semantic_threshold",
 ]

@@ -19,6 +19,7 @@ from erp_ai.infrastructure.postgres.routing import KnowledgeDatabaseAccess, Know
 from erp_ai.knowledge.embeddings import (
     EmbeddingGenerationSource,
     EmbeddingInput,
+    EmbeddingInputKind,
     EmbeddingMaterializationResult,
     PreparedEmbeddingSet,
 )
@@ -98,6 +99,7 @@ class PostgresEmbeddingRepository:  # pragma: no cover - PostgreSQL integration 
                             text=row[1],
                             content_sha256=row[2],
                             data_classification=DataClassification(row[3]),
+                            input_kind=EmbeddingInputKind.DOCUMENT,
                         )
                         for row in rows
                     ),

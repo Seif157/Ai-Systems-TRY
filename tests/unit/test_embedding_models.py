@@ -26,6 +26,9 @@ def profile(**overrides: object) -> EmbeddingProfile:
         "distance_metric": "cosine",
         "storage_representation": "float32",
         "input_normalization_version": 1,
+        "document_transform_version": 1,
+        "query_transform_version": 1,
+        "query_instruction": "Synthetic server instruction",
         "allowed_data_classifications": ("internal", "public", "restricted"),
     }
     values.update(overrides)
@@ -107,6 +110,7 @@ def test_batch_contracts_reject_duplicates_and_hide_text_vectors() -> None:
         text="restricted text",
         content_sha256="a" * 64,
         data_classification=DataClassification.RESTRICTED,
+        input_kind="document",
     )
     request = EmbeddingBatchRequest(profile=profile(), inputs=(item,))
     result = EmbeddingBatchResult(

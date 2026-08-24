@@ -3,6 +3,7 @@ from dataclasses import FrozenInstanceError
 import pytest
 from pydantic import ValidationError
 
+from erp_ai.infrastructure.tei import QWEN3_PINNED_RUNTIME_IDENTITY
 from erp_ai.knowledge.evaluation import (
     EvaluationThresholds,
     RetrievalCandidate,
@@ -66,6 +67,9 @@ def test_candidate_profile_binding_and_thresholds_are_explicit() -> None:
         candidate_id="semantic",
         candidate_type="semantic",
         embedding_profile_sha256="b" * 64,
+        semantic_policy_sha256="c" * 64,
+        embedding_resource_policy_sha256="d" * 64,
+        embedding_runtime_identity_sha256="e" * 64,
     )
     assert lexical.embedding_profile_sha256 is None
     assert semantic.embedding_profile_sha256 == "b" * 64
@@ -76,6 +80,28 @@ def test_candidate_profile_binding_and_thresholds_are_explicit() -> None:
             candidate_id="lexical",
             candidate_type="lexical",
             embedding_profile_sha256="b" * 64,
+            semantic_policy_sha256="c" * 64,
+            embedding_resource_policy_sha256="d" * 64,
+            embedding_runtime_identity_sha256="e" * 64,
+        )
+    with pytest.raises(ValidationError):
+        RetrievalCandidate(
+            candidate_id="lexical",
+            candidate_type="lexical",
+            semantic_policy_sha256="c" * 64,
+        )
+    with pytest.raises(ValidationError):
+        RetrievalCandidate(
+            candidate_id="lexical",
+            candidate_type="lexical",
+            embedding_resource_policy_sha256="d" * 64,
+            embedding_runtime_identity_sha256="e" * 64,
+        )
+    with pytest.raises(ValidationError):
+        RetrievalCandidate(
+            candidate_id="lexical",
+            candidate_type="lexical",
+            embedding_runtime_identity_sha256="e" * 64,
         )
     with pytest.raises(ValidationError):
         EvaluationThresholds.model_validate({})
@@ -94,8 +120,29 @@ def test_fingerprint_is_deterministic_and_binds_candidate_dataset_thresholds_and
             candidate_id="semantic",
             candidate_type="semantic",
             embedding_profile_sha256="b" * 64,
+            semantic_policy_sha256="c" * 64,
+            embedding_resource_policy_sha256="d" * 64,
+            embedding_runtime_identity_sha256="e" * 64,
         ),
         thresholds(),
+    )
+    observed_changed = QWEN3_PINNED_RUNTIME_IDENTITY.model_copy(
+        update={"observed_max_batch_requests": 5}
+    )
+    semantic = RetrievalCandidate(
+        candidate_id="semantic",
+        candidate_type="semantic",
+        embedding_profile_sha256="b" * 64,
+        semantic_policy_sha256="c" * 64,
+        embedding_resource_policy_sha256="d" * 64,
+        embedding_runtime_identity_sha256=QWEN3_PINNED_RUNTIME_IDENTITY.identity_sha256,
+    )
+    changed = semantic.model_copy(
+        update={"embedding_runtime_identity_sha256": observed_changed.identity_sha256}
+    )
+    assert observed_changed.identity_sha256 != QWEN3_PINNED_RUNTIME_IDENTITY.identity_sha256
+    assert evaluation_fingerprint(suite(), semantic, thresholds()) != evaluation_fingerprint(
+        suite(), changed, thresholds()
     )
     assert first != evaluation_fingerprint(
         suite(),

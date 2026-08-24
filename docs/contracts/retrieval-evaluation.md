@@ -54,9 +54,12 @@ infrastructure, which takes precedence over quality in the aggregate disposition
 ## Reproducibility
 
 The evaluation fingerprint is SHA-256 over canonical compact UTF-8 JSON containing the complete
-suite contract, suite and corpus versions, candidate type, semantic embedding-profile digest when
-applicable, cases and slices, limits, and metric thresholds. Keys are sorted, Unicode is preserved,
-and execution timestamps are excluded. Candidates and cases run sequentially in declared order;
+suite contract, suite and corpus versions, candidate type, semantic embedding-profile,
+server-owned embedding resource-policy, and observed effective runtime-identity digests when
+applicable, cases and slices, limits, and metric thresholds. Configured and observed runtime values
+remain distinct; changing either digest changes the fingerprint. Keys are sorted, Unicode is
+preserved, and execution timestamps are excluded.
+Candidates and cases run sequentially in declared order;
 the service performs no retry, fallback, sorting, or result mutation.
 
 Lexical and semantic results remain separate because combining them would introduce unapproved

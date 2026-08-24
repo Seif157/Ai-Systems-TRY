@@ -1,0 +1,49 @@
+services:
+  qwen3-embedding-test:
+    image: ghcr.io/huggingface/text-embeddings-inference:cpu-1.9.3@sha256:ad950d30878eceb72aaf32024d26fa2b1d04a75304fa0b4776b49aa1941fea07
+    ports:
+      - "127.0.0.1:58080:80"
+    environment:
+      API_KEY: ${ERP_AI_TEI_API_KEY:?Set ERP_AI_TEI_API_KEY to a synthetic local-test secret}
+      HF_HUB_DISABLE_TELEMETRY: "1"
+      DO_NOT_TRACK: "1"
+    command:
+      - --model-id
+      - Qwen/Qwen3-Embedding-0.6B
+      - --revision
+      - 97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3
+      - --max-concurrent-requests
+      - "1"
+      - --max-batch-tokens
+      - "1024"
+      - --max-batch-requests
+      - "1"
+      - --max-client-batch-size
+      - "4"
+      - --tokenization-workers
+      - "1"
+      - --payload-limit
+      - "32768"
+      - --auto-truncate
+      - "true"
+      - --api-key
+      - ${ERP_AI_TEI_API_KEY}
+    volumes:
+      - qwen3_embedding_cache:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:80/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp
+
+volumes:
+  qwen3_embedding_cache:
+    name: ${ERP_AI_EMBEDDING_CACHE_VOLUME:-erp_ai_qwen3_embedding_cache}

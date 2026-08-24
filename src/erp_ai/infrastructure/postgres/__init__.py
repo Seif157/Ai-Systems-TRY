@@ -19,6 +19,7 @@ from erp_ai.infrastructure.postgres.routing import (
 )
 from erp_ai.infrastructure.postgres.semantic_retrieval import (
     PostgresSemanticKnowledgeRetrievalProvider,
+    SemanticRetrievalPolicy,
 )
 
 __all__ = [
@@ -30,6 +31,7 @@ __all__ = [
     "PostgresKnowledgeIndexRepository",
     "PostgresLexicalKnowledgeRetrievalProvider",
     "PostgresSemanticKnowledgeRetrievalProvider",
+    "SemanticRetrievalPolicy",
     "StaticKnowledgeDatabaseConfig",
     "StaticKnowledgeDatabaseRouter",
 ]

@@ -63,6 +63,7 @@ def source() -> EmbeddingGenerationSource:
                 text=f"Text {index}",
                 content_sha256=hashlib.sha256(f"Text {index}".encode()).hexdigest(),
                 data_classification=DataClassification.INTERNAL,
+                input_kind="document",
             )
             for index in range(3)
         ),

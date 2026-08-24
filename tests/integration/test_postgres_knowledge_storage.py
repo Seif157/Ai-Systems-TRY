@@ -21,6 +21,7 @@ from erp_ai.infrastructure.postgres import (
     PostgresKnowledgeIndexRepository,
     PostgresLexicalKnowledgeRetrievalProvider,
     PostgresSemanticKnowledgeRetrievalProvider,
+    SemanticRetrievalPolicy,
     StaticKnowledgeDatabaseConfig,
     StaticKnowledgeDatabaseRouter,
 )
@@ -41,6 +42,7 @@ from erp_ai.knowledge.embeddings import (
     EmbeddingBatchRequest,
     EmbeddingBatchResult,
     EmbeddingMaterializer,
+    EmbeddingProfile,
     EmbeddingVector,
 )
 from erp_ai.knowledge.indexing import KnowledgeIndexPublisher, KnowledgePublicationConflict
@@ -65,6 +67,15 @@ CUSTOMERS = (("customer-a", "erp_ai_test_a"), ("customer-b", "erp_ai_test_b"))
 READER_ROLE = "erp_ai_test_reader"
 PUBLISHER_ROLE = "erp_ai_test_publisher"
 PASSWORD = "synthetic_role_password"
+
+
+def _semantic_policy(embedding_profile: EmbeddingProfile) -> SemanticRetrievalPolicy:
+    return SemanticRetrievalPolicy(
+        namespace="hr",
+        embedding_profile_sha256=embedding_profile.profile_sha256,
+        minimum_relevance_score=0.0,
+        policy_version="1.0.0",
+    )
 
 
 def _run[T](coroutine: Coroutine[Any, Any, T]) -> T:
@@ -540,7 +551,7 @@ async def _exercise_semantic_storage() -> None:
             effective_at=datetime.now(UTC),
         )
         semantic = PostgresSemanticKnowledgeRetrievalProvider(
-            router, "customer-a", embedding_profile, provider
+            router, "customer-a", embedding_profile, provider, _semantic_policy(embedding_profile)
         )
         matches = await semantic.retrieve(request)
         assert len(matches) == 2
@@ -551,8 +562,9 @@ async def _exercise_semantic_storage() -> None:
         assert {item.document_version for item in matches} == {"1.2.3", "1.9.0"}
         assert await semantic.retrieve(request.model_copy(update={"query": "'); DROP TABLE x; --"}))
 
+        mismatch_profile = profile(model_revision="revision-2")
         mismatch = PostgresSemanticKnowledgeRetrievalProvider(
-            router, "customer-a", profile(model_revision="revision-2"), provider
+            router, "customer-a", mismatch_profile, provider, _semantic_policy(mismatch_profile)
         )
         assert await mismatch.retrieve(request) == ()
         with pytest.raises(EmbeddingMaterializationConflict):
@@ -592,7 +604,7 @@ async def _exercise_semantic_storage() -> None:
         assert await semantic.retrieve(request)
 
         customer_b_semantic = PostgresSemanticKnowledgeRetrievalProvider(
-            router, "customer-b", embedding_profile, provider
+            router, "customer-b", embedding_profile, provider, _semantic_policy(embedding_profile)
         )
         assert (
             await customer_b_semantic.retrieve(
@@ -667,7 +679,7 @@ async def _exercise_semantic_storage() -> None:
         await router.close()
         await router.open()
         restarted = PostgresSemanticKnowledgeRetrievalProvider(
-            router, "customer-a", embedding_profile, provider
+            router, "customer-a", embedding_profile, provider, _semantic_policy(embedding_profile)
         )
         assert await restarted.retrieve(request)
     finally:

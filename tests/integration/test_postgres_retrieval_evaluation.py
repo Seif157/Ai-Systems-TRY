@@ -9,6 +9,11 @@ from erp_ai.infrastructure.postgres import (
     PostgresKnowledgeIndexRepository,
     PostgresLexicalKnowledgeRetrievalProvider,
     PostgresSemanticKnowledgeRetrievalProvider,
+    SemanticRetrievalPolicy,
+)
+from erp_ai.infrastructure.tei import (
+    QWEN3_LOCAL_TEST_RESOURCE_POLICY,
+    QWEN3_PINNED_RUNTIME_IDENTITY,
 )
 from erp_ai.knowledge import KnowledgeSourceType
 from erp_ai.knowledge.embeddings import (
@@ -119,6 +124,7 @@ def _case(
         case_id=case_id,
         query=query,
         language_slice=language,
+        partition="calibration",
         authorization_scope=_scope(),
         relevant_items=relevant,
         forbidden_result_ids=forbidden,
@@ -275,6 +281,14 @@ async def _exercise_retrieval_evaluation() -> None:
             candidate_id="semantic",
             candidate_type="semantic",
             embedding_profile_sha256=embedding_profile.profile_sha256,
+            semantic_policy_sha256=SemanticRetrievalPolicy(
+                namespace="hr",
+                embedding_profile_sha256=embedding_profile.profile_sha256,
+                minimum_relevance_score=0.0,
+                policy_version="1.0.0",
+            ).policy_sha256,
+            embedding_resource_policy_sha256=QWEN3_LOCAL_TEST_RESOURCE_POLICY.policy_sha256,
+            embedding_runtime_identity_sha256=QWEN3_PINNED_RUNTIME_IDENTITY.identity_sha256,
         )
         thresholds = EvaluationThresholds(
             minimum_precision_at_k=0.0,
@@ -289,7 +303,16 @@ async def _exercise_retrieval_evaluation() -> None:
                     router, "synthetic_customer_a"
                 ),
                 "semantic": PostgresSemanticKnowledgeRetrievalProvider(
-                    router, "synthetic_customer_a", embedding_profile, provider
+                    router,
+                    "synthetic_customer_a",
+                    embedding_profile,
+                    provider,
+                    SemanticRetrievalPolicy(
+                        namespace="hr",
+                        embedding_profile_sha256=embedding_profile.profile_sha256,
+                        minimum_relevance_score=0.0,
+                        policy_version="1.0.0",
+                    ),
                 ),
             }
         )

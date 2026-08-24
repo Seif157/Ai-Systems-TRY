@@ -2,8 +2,11 @@
 
 import asyncio
 import hashlib
+import json
 from decimal import Decimal
 from typing import Any, cast
+
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from erp_ai.capabilities import DataClassification
 from erp_ai.infrastructure.postgres.errors import (
@@ -15,9 +18,36 @@ from erp_ai.knowledge import KnowledgeMatch, KnowledgeRetrievalRequest, Knowledg
 from erp_ai.knowledge.embeddings import (
     EmbeddingBatchRequest,
     EmbeddingInput,
+    EmbeddingInputKind,
     EmbeddingProfile,
     EmbeddingProvider,
 )
+
+
+class SemanticRetrievalPolicy(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    namespace: str = Field(pattern=r"^[a-z][a-z0-9_]*$")
+    embedding_profile_sha256: str = Field(pattern=r"^[0-9a-f]{64}$", repr=False)
+    minimum_relevance_score: float = Field(strict=True, ge=0, le=1, repr=False)
+    policy_version: str = Field(pattern=r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def policy_sha256(self) -> str:
+        return hashlib.sha256(
+            json.dumps(
+                {
+                    "embedding_profile_sha256": self.embedding_profile_sha256,
+                    "minimum_relevance_score": self.minimum_relevance_score,
+                    "namespace": self.namespace,
+                    "policy_version": self.policy_version,
+                },
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode()
+        ).hexdigest()
+
 
 _SEMANTIC_QUERY = """
 WITH ready_set AS (
@@ -56,13 +86,19 @@ WITH ready_set AS (
       AND c.data_classification = ANY(%s::text[])
       AND CASE c.data_classification
           WHEN 'public' THEN 0 WHEN 'internal' THEN 1 WHEN 'restricted' THEN 2 ELSE 3 END <= 2
+), scored AS (
+    SELECT eligible.*,
+           greatest(0::double precision,least(1::double precision,1-cosine_distance/2))
+             AS relevance_score
+    FROM eligible
 )
 SELECT chunk_id,document_id,citation_id,namespace,source_type,
        document_customer_environment_id,required_modules_all,required_permissions_all,
        allowed_purposes,legal_entity_ids,data_classification,language,title,section,
        document_version,effective_from,effective_to,content,
-       greatest(0::double precision,least(1::double precision,1-cosine_distance/2))
-FROM eligible
+       relevance_score
+FROM scored
+WHERE relevance_score >= %s
 ORDER BY cosine_distance ASC,chunk_id ASC
 LIMIT %s
 """
@@ -73,7 +109,7 @@ def _vector_literal(values: tuple[float, ...]) -> str:
 
 
 class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integration boundary
-    __slots__ = ("_customer", "_profile", "_provider", "_router")
+    __slots__ = ("_customer", "_policy", "_profile", "_provider", "_router")
 
     def __init__(
         self,
@@ -81,11 +117,15 @@ class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integrat
         customer_environment_id: str,
         profile: EmbeddingProfile,
         provider: EmbeddingProvider,
+        policy: SemanticRetrievalPolicy,
     ) -> None:
+        if policy.namespace != "hr" or policy.embedding_profile_sha256 != profile.profile_sha256:
+            raise ValueError("semantic retrieval policy is incompatible")
         self._router = router
         self._customer = customer_environment_id
         self._profile = profile
         self._provider = provider
+        self._policy = policy
 
     async def retrieve(self, request: KnowledgeRetrievalRequest) -> tuple[KnowledgeMatch, ...]:
         if request.customer_environment_id != self._customer:
@@ -96,6 +136,7 @@ class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integrat
                 text=request.query,
                 content_sha256=hashlib.sha256(request.query.encode()).hexdigest(),
                 data_classification=DataClassification.INTERNAL,
+                input_kind=EmbeddingInputKind.QUERY,
             )
             result = await self._provider.embed(
                 EmbeddingBatchRequest(profile=self._profile, inputs=(query_input,))
@@ -155,6 +196,7 @@ class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integrat
                             request.effective_at,
                             request.effective_at,
                             [item.value for item in self._profile.allowed_data_classifications],
+                            self._policy.minimum_relevance_score,
                             request.maximum_results,
                         ),
                     )
