@@ -74,6 +74,16 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 
 ## Project status
 
+Step 18 is in progress: version 1 was invalidated before checkpoint and version 2.0.0 is a
+machine-authored, unreviewed bilingual synthetic HR benchmark that lives only
+under test fixtures. It is not customer policy, human-labelled evidence, or production-quality
+evidence, and cannot approve a production threshold or retrieval candidate.
+
+The completed version 2 evaluation passed expected-empty and security checks. Hybrid retrieval
+reduced some aggregate zero-recall cases, but semantic and hybrid quality remain insufficient for
+production and neither is promoted. Real approved documents and independent human labels remain
+mandatory, and the observed holdout must not be used to tune version 2.
+
 Step 17 is in progress on an uncommitted feature branch: deterministic, exact-arithmetic hybrid
 knowledge retrieval is evaluation-only and retains the semantic threshold status
 `unapproved_test_only`. It does not replace the production HR knowledge provider.

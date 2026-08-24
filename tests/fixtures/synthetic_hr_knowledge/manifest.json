@@ -1,0 +1,102 @@
+{
+  "synthetic_test_only": true,
+  "dataset_id": "synthetic_hr_knowledge_benchmark",
+  "dataset_version": "2.0.0",
+  "label_status": "machine_authored_synthetic_reference",
+  "review_status": "machine_authored_unreviewed",
+  "created_at": "2026-08-24T08:00:00Z",
+  "evaluation_at": "2026-08-24T09:00:00Z",
+  "partition_salt": "synthetic-hr-v2-family-split",
+  "partition_assignments": {
+    "product_profile": "calibration",
+    "product_leave_workflow": "holdout",
+    "product_attendance_screen": "calibration",
+    "product_payslip_screen": "holdout",
+    "annual_leave": "calibration",
+    "sick_leave": "holdout",
+    "attendance": "calibration",
+    "remote_work": "holdout",
+    "payroll_calendar": "calibration",
+    "training": "holdout"
+  },
+  "corpus_fingerprint": "e7434434e62f3037821cc7ad4f214dbaf03a764d23aabc932e3c4a1ba75debe7",
+  "case_fingerprint": "ef17652cafc1b620c352734c825fbe7cbf5cfb1dcd31bcbdca91dbd66d8770ff",
+  "calibration_partition_fingerprint": "f35720f63d7487ef3dcc0e8e0cfa3ed6356bdb3a91063791fee18e6e7180d82b",
+  "holdout_partition_fingerprint": "720709281eaa0670855c15ad17da283a221716eecd50dc7e9ce2a5682305d463",
+  "combined_dataset_fingerprint": "93b18a8395791b835d2f220821e0317104713ca63a67a8742fcfa70c95e220bc",
+  "fictional_customers": {
+    "alpha": "synthetic_customer_alpha",
+    "beta": "synthetic_customer_beta"
+  },
+  "fictional_customer_uuids": {
+    "alpha": "10000000-0000-4000-8000-000000000001",
+    "beta": "20000000-0000-4000-8000-000000000002"
+  },
+  "fictional_legal_entities": {
+    "alpha": ["11000000-0000-4000-8000-000000000001", "11000000-0000-4000-8000-000000000002"],
+    "beta": ["22000000-0000-4000-8000-000000000001", "22000000-0000-4000-8000-000000000002"]
+  },
+  "fixture_only_module_codes": ["attendance_fixture", "payroll_fixture"],
+  "document_versions": {
+    "10000000-0000-4000-8000-000000000104": "1.0.0",
+    "10000000-0000-4000-8000-000000000106": "2.0.0"
+  },
+  "logical_policies": {
+    "10000000-0000-4000-8000-000000000104": "remote_work",
+    "10000000-0000-4000-8000-000000000106": "remote_work"
+  },
+  "lifecycle": {
+    "00000000-0000-4000-8000-000000000001": {"withdrawn": false, "superseded_by": null},
+    "00000000-0000-4000-8000-000000000002": {"withdrawn": false, "superseded_by": null},
+    "00000000-0000-4000-8000-000000000003": {"withdrawn": false, "superseded_by": null},
+    "00000000-0000-4000-8000-000000000004": {"withdrawn": true, "superseded_by": null},
+    "10000000-0000-4000-8000-000000000101": {"withdrawn": false, "superseded_by": null},
+    "10000000-0000-4000-8000-000000000102": {"withdrawn": false, "superseded_by": null},
+    "10000000-0000-4000-8000-000000000103": {"withdrawn": false, "superseded_by": null},
+    "10000000-0000-4000-8000-000000000104": {"withdrawn": false, "superseded_by": "10000000-0000-4000-8000-000000000106"},
+    "10000000-0000-4000-8000-000000000105": {"withdrawn": false, "superseded_by": null},
+    "10000000-0000-4000-8000-000000000106": {"withdrawn": false, "superseded_by": null}
+    ,"20000000-0000-4000-8000-000000000101": {"withdrawn": false, "superseded_by": null}
+    ,"20000000-0000-4000-8000-000000000102": {"withdrawn": false, "superseded_by": null}
+    ,"20000000-0000-4000-8000-000000000103": {"withdrawn": false, "superseded_by": null}
+    ,"20000000-0000-4000-8000-000000000104": {"withdrawn": false, "superseded_by": null}
+    ,"20000000-0000-4000-8000-000000000105": {"withdrawn": false, "superseded_by": null}
+    ,"20000000-0000-4000-8000-000000000106": {"withdrawn": false, "superseded_by": null}
+  },
+  "lexical_anchors": {
+    "00000000-0000-4000-8000-000000000001": "fictional work profile",
+    "00000000-0000-4000-8000-000000000002": "طلب الإجازة",
+    "00000000-0000-4000-8000-000000000003": "وقت الحضور والانصراف",
+    "00000000-0000-4000-8000-000000000004": "earnings and deductions",
+    "10000000-0000-4000-8000-000000000101": "twenty-four working days",
+    "10000000-0000-4000-8000-000000000102": "عشرة أيام مرضية",
+    "10000000-0000-4000-8000-000000000103": "08:30",
+    "10000000-0000-4000-8000-000000000104": "two remote days",
+    "10000000-0000-4000-8000-000000000105": "اليوم الخامس والعشرين",
+    "10000000-0000-4000-8000-000000000106": "three remote days",
+    "20000000-0000-4000-8000-000000000101": "ثمانية عشر يوم عمل",
+    "20000000-0000-4000-8000-000000000102": "seven sick days",
+    "20000000-0000-4000-8000-000000000103": "09:15",
+    "20000000-0000-4000-8000-000000000104": "one remote day",
+    "20000000-0000-4000-8000-000000000105": "final business day",
+    "20000000-0000-4000-8000-000000000106": "يومي تدريب"
+  },
+  "documents": [
+    {"path":"documents/global_profile_en.md","sha":"1d3eb8a91cbd8da7e7475792c97196c7790baedd80da025335ad4ab1c5584353","id":"00000000-0000-4000-8000-000000000001","family":"product_profile","partition":"calibration","language":"en","source":"product_documentation","customer":null,"modules":["hr_core"],"entities":[],"classification":"internal","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/global_leave_mixed.md","sha":"72767a936a06bdea0c298aa6ad2de83d0f769698a2f1bb3f1bc151a56dd9ff66","id":"00000000-0000-4000-8000-000000000002","family":"product_leave_workflow","partition":"holdout","language":"ar-EG","source":"product_documentation","customer":null,"modules":["hr_core","leave"],"entities":[],"classification":"internal","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/global_attendance_ar.md","sha":"954b9be92b5ece3b0b15538b05fd451a7d1069c78c41ba087d7bf8351993e97d","id":"00000000-0000-4000-8000-000000000003","family":"product_attendance_screen","partition":"calibration","language":"ar-EG","source":"product_documentation","customer":null,"modules":["hr_core","attendance_fixture"],"entities":[],"classification":"internal","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/global_payslip_en.md","sha":"ac707bba1ad7d800fd05d23408c7330acd204352ac661f42e14055c9b7d409b5","id":"00000000-0000-4000-8000-000000000004","family":"product_payslip_screen","partition":"holdout","language":"en","source":"product_documentation","customer":null,"modules":["hr_core","payroll_fixture"],"entities":[],"classification":"restricted","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/alpha_annual_en.md","sha":"3cb6ab2ec7438be3e770d32dd9de5dad902a76f97ba70b8909b2803f3414d425","id":"10000000-0000-4000-8000-000000000101","family":"annual_leave","partition":"calibration","language":"en","source":"customer_policy","customer":"alpha","modules":["hr_core","leave"],"entities":["alpha_1"],"classification":"internal","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/alpha_sick_ar.md","sha":"bafb86db41e8a244c970885c4abf12013e44c753050a2102bee3e500ba25a5dc","id":"10000000-0000-4000-8000-000000000102","family":"sick_leave","partition":"holdout","language":"ar-EG","source":"customer_policy","customer":"alpha","modules":["hr_core","leave"],"entities":["alpha_1"],"classification":"restricted","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/alpha_attendance_mixed.md","sha":"07dd2fdcb02d4a905d807038763c0ea89fdca8352513631c5a91b1c952072c90","id":"10000000-0000-4000-8000-000000000103","family":"attendance","partition":"calibration","language":"en","source":"customer_policy","customer":"alpha","modules":["hr_core","attendance_fixture"],"entities":["alpha_2"],"classification":"internal","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/alpha_remote_en.md","sha":"6878349e91859bd62a6830a69d13541845af60cbaef99a7206a4944da7bff597","id":"10000000-0000-4000-8000-000000000104","family":"remote_work","partition":"holdout","language":"en","source":"customer_policy","customer":"alpha","modules":["hr_core"],"entities":["alpha_1","alpha_2"],"classification":"internal","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/alpha_payroll_ar.md","sha":"b2f5243e035c4a0e7e20ee6ec46b8baf40c7fe3af8c4be8d59e6adde92ad8b72","id":"10000000-0000-4000-8000-000000000105","family":"payroll_calendar","partition":"calibration","language":"ar-EG","source":"customer_policy","customer":"alpha","modules":["hr_core","payroll_fixture"],"entities":["alpha_1"],"classification":"restricted","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/alpha_training_en.md","sha":"3ac41aa7168b5705c6a35f1ea28ea79aa1897d02b84dea806b265fdc4cec0252","id":"10000000-0000-4000-8000-000000000106","family":"remote_work","partition":"holdout","language":"en","source":"customer_policy","customer":"alpha","modules":["hr_core"],"entities":["alpha_1","alpha_2"],"classification":"internal","from":"2027-01-01T00:00:00Z","to":null},
+    {"path":"documents/beta_annual_ar.md","sha":"0544fdabddb6853071462b72005156c89907686388a47c75d8802ccde39f6434","id":"20000000-0000-4000-8000-000000000101","family":"annual_leave","partition":"calibration","language":"ar-EG","source":"customer_policy","customer":"beta","modules":["hr_core","leave"],"entities":["beta_1"],"classification":"internal","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/beta_sick_en.md","sha":"ccd077d2632f67996f9a081a47424911e3e904b06b99b3b34f4115d716737e8c","id":"20000000-0000-4000-8000-000000000102","family":"sick_leave","partition":"holdout","language":"en","source":"customer_policy","customer":"beta","modules":["hr_core","leave"],"entities":["beta_1"],"classification":"restricted","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/beta_attendance_en.md","sha":"3abedfdb4c7ab510e3de026c96ac66015f4f60c0bf369175a3d37efb15cb6c7b","id":"20000000-0000-4000-8000-000000000103","family":"attendance","partition":"calibration","language":"en","source":"customer_policy","customer":"beta","modules":["hr_core","attendance_fixture"],"entities":["beta_2"],"classification":"internal","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/beta_remote_mixed.md","sha":"202e471830b97c78cc4c17e1bc43f22ede173040526f3c26720b112ad9e80a3f","id":"20000000-0000-4000-8000-000000000104","family":"remote_work","partition":"holdout","language":"ar-EG","source":"customer_policy","customer":"beta","modules":["hr_core"],"entities":["beta_1","beta_2"],"classification":"internal","from":"2024-01-01T00:00:00Z","to":"2025-01-01T00:00:00Z"},
+    {"path":"documents/beta_payroll_en.md","sha":"e8a8ca14308be127fbddeb30ba0ac4347b4fb3bbcf4b81ff991a00adb2d3cd4a","id":"20000000-0000-4000-8000-000000000105","family":"payroll_calendar","partition":"calibration","language":"en","source":"customer_policy","customer":"beta","modules":["hr_core","payroll_fixture"],"entities":["beta_1"],"classification":"restricted","from":"2026-01-01T00:00:00Z","to":null},
+    {"path":"documents/beta_training_ar.md","sha":"681018c6f196eff7a7fc720ee5fc568902ca0df106bdf85849d903f880e56363","id":"20000000-0000-4000-8000-000000000106","family":"training","partition":"holdout","language":"ar-EG","source":"customer_policy","customer":"beta","modules":["hr_core"],"entities":["beta_2"],"classification":"internal","from":"2024-01-01T00:00:00Z","to":"2026-01-01T00:00:00Z"}
+  ]
+}

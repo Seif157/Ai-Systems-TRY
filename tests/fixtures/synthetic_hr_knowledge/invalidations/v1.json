@@ -1,0 +1,15 @@
+{
+  "dataset_version": "1.0.0",
+  "status": "invalidated_before_checkpoint",
+  "corpus_fingerprint": "6d896a254fc033ff9e33d9d22109e7454c9d62752bce170e92f562e58e429bc0",
+  "calibration_partition_fingerprint": "23dbde49a9c0de9d166383aa41ae84c211f55223f2ccb5622aad5ab49ea738c9",
+  "holdout_partition_fingerprint": "b39377accedd157e130712c83bf2c6244a4adb8aa5e0348a834423a048e15bc8",
+  "integrity_defects": [
+    "publication_dispositions_were_not_explicit_or exhaustive",
+    "exact_keyword_cases_did_not_prove_real_lexical anchors",
+    "positive_labels_were_not_resolved_against_the_exact_published_set",
+    "zero_recall_primary_reason_diagnostics_were_absent"
+  ],
+  "aborted_attempt_observed_calibration_or_holdout": false,
+  "completed_results_support_threshold_approval": false
+}
