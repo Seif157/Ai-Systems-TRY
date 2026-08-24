@@ -1,5 +1,15 @@
 # Retrieval evaluation contract
 
+The framework supports three sequential candidates: lexical, semantic, and hybrid. Hybrid
+evaluation binds the corpus generation, embedding profile, semantic policy and threshold status,
+TEI resource policy, observed runtime identity, and hybrid policy into its candidate fingerprint.
+The fixed threshold `0.8170998503506278` is permitted only as `unapproved_test_only`; evaluation
+does not select a winner or promote any candidate or threshold to production.
+
+Step 17's live Qwen product-documentation cases showed hybrid matching semantic retrieval rather
+than improving it. They did not verify real-Qwen customer-policy quality, cannot support production
+approval, and do not benchmark exact vector search at production corpus scale.
+
 Step 15 provides an offline, provider-neutral evaluation boundary for the production
 `KnowledgeRetrievalProvider` contract. It compares lexical and exact-semantic candidates
 independently against the same declared cases and trusted synthetic authorization scopes. It does

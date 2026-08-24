@@ -32,6 +32,7 @@ class EvaluationLanguageSlice(str, Enum):
 class CandidateType(str, Enum):
     LEXICAL = "lexical"
     SEMANTIC = "semantic"
+    HYBRID = "hybrid"
 
 
 class EvaluationDisposition(str, Enum):
@@ -163,6 +164,8 @@ class RetrievalCandidate(BaseModel):
     semantic_policy_sha256: Digest | None = Field(default=None, repr=False)
     embedding_resource_policy_sha256: Digest | None = Field(default=None, repr=False)
     embedding_runtime_identity_sha256: Digest | None = Field(default=None, repr=False)
+    hybrid_policy_sha256: Digest | None = Field(default=None, repr=False)
+    threshold_approval_status: Literal["unapproved_test_only"] | None = None
 
     @field_validator("candidate_type", mode="before")
     @classmethod
@@ -171,24 +174,26 @@ class RetrievalCandidate(BaseModel):
 
     @model_validator(mode="after")
     def validate_profile_binding(self) -> "RetrievalCandidate":
-        if (self.candidate_type is CandidateType.SEMANTIC) != (
-            self.embedding_profile_sha256 is not None
-        ):
+        uses_semantic = self.candidate_type in (CandidateType.SEMANTIC, CandidateType.HYBRID)
+        if uses_semantic != (self.embedding_profile_sha256 is not None):
             raise ValueError("only semantic candidates require an embedding profile digest")
-        if (self.candidate_type is CandidateType.SEMANTIC) != (
-            self.semantic_policy_sha256 is not None
-        ):
+        if uses_semantic != (self.semantic_policy_sha256 is not None):
             raise ValueError("only semantic candidates require a semantic policy digest")
-        if (self.candidate_type is CandidateType.SEMANTIC) != (
-            self.embedding_resource_policy_sha256 is not None
-        ):
+        if uses_semantic != (self.embedding_resource_policy_sha256 is not None):
             raise ValueError("only semantic candidates require an embedding resource policy digest")
-        if (self.candidate_type is CandidateType.SEMANTIC) != (
-            self.embedding_runtime_identity_sha256 is not None
-        ):
+        if uses_semantic != (self.embedding_runtime_identity_sha256 is not None):
             raise ValueError(
-                "only semantic candidates require an embedding runtime identity digest"
+                "semantic and hybrid candidates require an embedding runtime identity digest"
             )
+        if (self.candidate_type is CandidateType.HYBRID) != (self.hybrid_policy_sha256 is not None):
+            raise ValueError("only hybrid candidates require a hybrid policy digest")
+        if self.candidate_type is CandidateType.HYBRID and self.threshold_approval_status is None:
+            raise ValueError("hybrid candidates require threshold approval status")
+        if (
+            self.candidate_type is CandidateType.LEXICAL
+            and self.threshold_approval_status is not None
+        ):
+            raise ValueError("lexical candidates cannot bind a semantic threshold")
         return self
 
 

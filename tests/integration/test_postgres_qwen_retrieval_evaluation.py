@@ -6,8 +6,11 @@ from uuid import UUID
 import pytest
 
 from erp_ai.infrastructure.postgres import (
+    HybridRetrievalPolicy,
     PostgresEmbeddingRepository,
+    PostgresHybridKnowledgeRetrievalProvider,
     PostgresKnowledgeIndexRepository,
+    PostgresLexicalKnowledgeRetrievalProvider,
     PostgresSemanticKnowledgeRetrievalProvider,
     SemanticRetrievalPolicy,
 )
@@ -304,15 +307,48 @@ async def _exercise() -> dict[str, object]:
                 embedding_resource_policy_sha256=(QWEN3_LOCAL_TEST_RESOURCE_POLICY.policy_sha256),
                 embedding_runtime_identity_sha256=(QWEN3_PINNED_RUNTIME_IDENTITY.identity_sha256),
             )
+            lexical_candidate = RetrievalCandidate(
+                candidate_id="qwen3_lexical", candidate_type="lexical"
+            )
+            hybrid_policy = HybridRetrievalPolicy(
+                policy_version="1.0.0",
+                namespace="hr",
+                embedding_profile_sha256=embedding_profile.profile_sha256,
+                semantic_threshold=0.8170998503506278,
+                threshold_approval_status="unapproved_test_only",
+                generation_digest=publication.generation_digest,
+                embedding_resource_policy_sha256=QWEN3_LOCAL_TEST_RESOURCE_POLICY.policy_sha256,
+                embedding_runtime_identity_sha256=QWEN3_PINNED_RUNTIME_IDENTITY.identity_sha256,
+            )
+            hybrid_candidate = RetrievalCandidate(
+                candidate_id="qwen3_hybrid",
+                candidate_type="hybrid",
+                embedding_profile_sha256=embedding_profile.profile_sha256,
+                semantic_policy_sha256=selected_policy.policy_sha256,
+                embedding_resource_policy_sha256=QWEN3_LOCAL_TEST_RESOURCE_POLICY.policy_sha256,
+                embedding_runtime_identity_sha256=QWEN3_PINNED_RUNTIME_IDENTITY.identity_sha256,
+                hybrid_policy_sha256=hybrid_policy.policy_sha256,
+                threshold_approval_status="unapproved_test_only",
+            )
             service = RetrievalEvaluationService(
                 {
+                    lexical_candidate.candidate_id: PostgresLexicalKnowledgeRetrievalProvider(
+                        router, "synthetic_customer_a"
+                    ),
                     candidate.candidate_id: PostgresSemanticKnowledgeRetrievalProvider(
                         router,
                         "synthetic_customer_a",
                         embedding_profile,
                         provider,
                         selected_policy,
-                    )
+                    ),
+                    hybrid_candidate.candidate_id: PostgresHybridKnowledgeRetrievalProvider(
+                        router,
+                        "synthetic_customer_a",
+                        embedding_profile,
+                        provider,
+                        hybrid_policy,
+                    ),
                 }
             )
             reports = []
@@ -328,23 +364,29 @@ async def _exercise() -> dict[str, object]:
                     dataset_governance="approved_synthetic",
                     cases=partition_cases,
                 )
-                report = (await service.evaluate(suite, (candidate,), gates))[0]
-                overall = report.slices[0].metrics
-                assert report.disposition is EvaluationDisposition.PASSED
-                assert overall.forbidden_result_count == 0
-                assert overall.authorization_leak_count == 0
-                assert overall.cross_customer_result_count == 0
-                assert overall.unexpected_provider_failure_count == 0
-                reports.append((partition, report))
+                candidate_reports = await service.evaluate(
+                    suite, (lexical_candidate, candidate, hybrid_candidate), gates
+                )
+                for report in candidate_reports:
+                    overall = report.slices[0].metrics
+                    assert overall.forbidden_result_count == 0
+                    assert overall.authorization_leak_count == 0
+                    assert overall.cross_customer_result_count == 0
+                    assert overall.unexpected_provider_failure_count == 0
+                assert candidate_reports[1].disposition is EvaluationDisposition.PASSED
+                reports.append((partition, candidate_reports))
             return {
                 "selection": selection.model_dump(mode="json"),
                 **{
                     partition: {
-                        item.slice_name: item.metrics.model_dump(mode="json")
-                        for item in report.slices
-                        if item.slice_name in {"overall", "arabic", "english", "mixed"}
+                        report.candidate_type.value: {
+                            item.slice_name: item.metrics.model_dump(mode="json")
+                            for item in report.slices
+                            if item.slice_name in {"overall", "arabic", "english", "mixed"}
+                        }
+                        for report in candidate_reports
                     }
-                    for partition, report in reports
+                    for partition, candidate_reports in reports
                 },
             }
     finally:

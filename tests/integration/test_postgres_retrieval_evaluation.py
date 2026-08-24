@@ -5,7 +5,9 @@ from uuid import UUID
 import psycopg
 
 from erp_ai.infrastructure.postgres import (
+    HybridRetrievalPolicy,
     PostgresEmbeddingRepository,
+    PostgresHybridKnowledgeRetrievalProvider,
     PostgresKnowledgeIndexRepository,
     PostgresLexicalKnowledgeRetrievalProvider,
     PostgresSemanticKnowledgeRetrievalProvider,
@@ -290,6 +292,26 @@ async def _exercise_retrieval_evaluation() -> None:
             embedding_resource_policy_sha256=QWEN3_LOCAL_TEST_RESOURCE_POLICY.policy_sha256,
             embedding_runtime_identity_sha256=QWEN3_PINNED_RUNTIME_IDENTITY.identity_sha256,
         )
+        hybrid_policy = HybridRetrievalPolicy(
+            policy_version="1.0.0",
+            namespace="hr",
+            embedding_profile_sha256=embedding_profile.profile_sha256,
+            semantic_threshold=0.8170998503506278,
+            threshold_approval_status="unapproved_test_only",
+            generation_digest=publication.generation_digest,
+            embedding_resource_policy_sha256=QWEN3_LOCAL_TEST_RESOURCE_POLICY.policy_sha256,
+            embedding_runtime_identity_sha256=QWEN3_PINNED_RUNTIME_IDENTITY.identity_sha256,
+        )
+        hybrid = RetrievalCandidate(
+            candidate_id="hybrid",
+            candidate_type="hybrid",
+            embedding_profile_sha256=embedding_profile.profile_sha256,
+            semantic_policy_sha256=semantic.semantic_policy_sha256,
+            embedding_resource_policy_sha256=QWEN3_LOCAL_TEST_RESOURCE_POLICY.policy_sha256,
+            embedding_runtime_identity_sha256=QWEN3_PINNED_RUNTIME_IDENTITY.identity_sha256,
+            hybrid_policy_sha256=hybrid_policy.policy_sha256,
+            threshold_approval_status="unapproved_test_only",
+        )
         thresholds = EvaluationThresholds(
             minimum_precision_at_k=0.0,
             minimum_recall_at_k=0.0,
@@ -314,14 +336,22 @@ async def _exercise_retrieval_evaluation() -> None:
                         policy_version="1.0.0",
                     ),
                 ),
+                "hybrid": PostgresHybridKnowledgeRetrievalProvider(
+                    router,
+                    "synthetic_customer_a",
+                    embedding_profile,
+                    provider,
+                    hybrid_policy,
+                ),
             }
         )
-        first = await service.evaluate(suite, (lexical, semantic), thresholds)
-        second = await service.evaluate(suite, (lexical, semantic), thresholds)
+        first = await service.evaluate(suite, (lexical, semantic, hybrid), thresholds)
+        second = await service.evaluate(suite, (lexical, semantic, hybrid), thresholds)
         assert first == second
-        lexical_report, semantic_report = first
+        lexical_report, semantic_report, hybrid_report = first
         assert lexical_report.disposition is EvaluationDisposition.PASSED
         assert semantic_report.disposition is EvaluationDisposition.PASSED
+        assert hybrid_report.disposition is EvaluationDisposition.PASSED
         assert lexical_report.evaluation_fingerprint != semantic_report.evaluation_fingerprint
         for report in first:
             overall = report.slices[0].metrics
@@ -333,6 +363,10 @@ async def _exercise_retrieval_evaluation() -> None:
             assert "DROP TABLE" not in report.model_dump_json()
         assert lexical_report.slices[0].metrics.expected_empty_accuracy == 1.0
         assert semantic_report.slices[0].metrics.expected_empty_accuracy == 0.0
+        assert hybrid_report.evaluation_fingerprint not in {
+            lexical_report.evaluation_fingerprint,
+            semantic_report.evaluation_fingerprint,
+        }
 
         admin = await psycopg.AsyncConnection.connect(_database_dsn(CUSTOMERS[0][1]))
         try:

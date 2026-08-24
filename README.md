@@ -74,6 +74,12 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 
 ## Project status
 
+Step 17 is in progress on an uncommitted feature branch: deterministic, exact-arithmetic hybrid
+knowledge retrieval is evaluation-only and retains the semantic threshold status
+`unapproved_test_only`. It does not replace the production HR knowledge provider.
+Its small live product-documentation evaluation matched semantic quality but did not improve it;
+customer-policy quality and production-scale exact-search performance remain unverified.
+
 | Area | Status | Notes |
 |---|---|---|
 | Platform architecture | Defined | Shared core plus entitlement-aware capabilities |
