@@ -124,10 +124,12 @@ def _database_dsn(database: str, *, role: str = "postgres", password: str | None
     return make_conninfo(ADMIN_DSN, **values)
 
 
-async def _provision() -> StaticKnowledgeDatabaseRouter:
+async def _provision(
+    customers: tuple[tuple[str, str], ...] = CUSTOMERS,
+) -> StaticKnowledgeDatabaseRouter:
     await _recreate_databases()
     routes = []
-    for customer, database in CUSTOMERS:
+    for customer, database in customers:
         admin_dsn = _database_dsn(database)
         connection = await psycopg.AsyncConnection.connect(admin_dsn)
         try:

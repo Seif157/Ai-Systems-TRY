@@ -27,14 +27,20 @@ from tests.support.knowledge_index_repository import AtomicTestKnowledgeIndexRep
 NOW = datetime(2026, 8, 23, tzinfo=UTC)
 
 
-def context(*, operation: str = "op-1", customer: str = "customer-a", namespace: str = "hr"):
+def context(
+    *,
+    operation: str = "op-1",
+    customer: str = "customer-a",
+    namespace: str = "hr",
+    installed_modules: tuple[str, ...] = ("hr_core", "leave"),
+):
     return KnowledgePublicationContext(
         operation_id=operation,
         request_id=f"request-{operation}",
         customer_environment_id=customer,
         actor_id="admin-service",
         namespace=namespace,
-        installed_modules=("hr_core", "leave"),
+        installed_modules=installed_modules,
         authorization_snapshot_id="auth-1",
         issued_at=NOW,
     )
@@ -50,6 +56,7 @@ def bundle(
     permissions: tuple[str, ...] = ("hr.knowledge.read",),
     purposes: tuple[str, ...] = ("employee_self_service",),
     legal_entities: tuple[str, ...] = (),
+    effective_from: datetime | None = None,
     effective_to: datetime | None = None,
     content: str = "Approved knowledge",
     version: str = "1.0.0",
@@ -70,7 +77,7 @@ def bundle(
         allowed_purposes=purposes,
         legal_entity_ids=legal_entities,
         data_classification=classification,
-        effective_from=NOW - timedelta(days=2),
+        effective_from=effective_from or NOW - timedelta(days=2),
         effective_to=effective_to,
         approval_reference="approval-1",
         approved_at=NOW - timedelta(days=3),

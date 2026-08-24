@@ -94,6 +94,7 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 | Knowledge index publication | Implemented contract | Customer-scoped immutable generations, deterministic incremental manifests, CAS activation/rollback, snapshot binding, idempotency, and transactional audit outbox; PostgreSQL adapter available |
 | PostgreSQL knowledge storage | Implemented adapter | Static per-customer reader/publisher/admin routing, identity binding, RLS, atomic publication, retained rollback, exact SemVer preservation, and Arabic/English lexical retrieval; no embeddings or vector search |
 | Exact semantic retrieval | Implemented adapter | Provider-neutral deterministic embedding contracts, atomic complete generation sets, and exact pgvector cosine search; test provider only, with no approximate index, fallback, or production model |
+| Retrieval evaluation | Implemented contract | Deterministic offline lexical/semantic comparison, aggregate multilingual/source slices, explicit quality thresholds, and unconditional authorization-leak gates; synthetic test embeddings do not establish semantic quality |
 | Agent orchestration | Implemented contract | Stateless bounded model turns, structurally bound general/knowledge/ERP/mixed evidence, deterministic input/catalog budgets, gateway-only execution, citation enforcement, and mandatory agent audit; no production model provider |
 | HR write command | Planned | Leave request with preview, confirmation, and idempotency |
 | Additional ERP capabilities | Planned | Added independently after the first vertical slice passes security gates |
@@ -602,6 +603,13 @@ Never use real production employee or customer data in local development or auto
 - Restricted values do not appear in prompts, citations, traces, logs, or errors without explicit authorization.
 
 **Release gate:** zero authorization or cross-customer leaks, and every enabled material action is confirmed, idempotent, and auditable.
+
+Retrieval evaluation runs lexical and exact-semantic providers independently against the same
+versioned synthetic or sanitized suite. Its deterministic aggregate report separates quality,
+security, and infrastructure failures; quality thresholds are always caller supplied, while any
+authorization or customer-isolation leak fails unconditionally. Hybrid ranking and approval of a
+real multilingual embedding provider remain future work. See
+[`docs/contracts/retrieval-evaluation.md`](docs/contracts/retrieval-evaluation.md).
 
 ## Adding a module
 
