@@ -94,6 +94,12 @@ assistant call's exact bounded JSON arguments and immutable parsed projection be
 untrusted public tool result, in original order. It adds no model provider, network access,
 reasoning state, credentials, or production wiring.
 
+Step 20B adds an uncommitted generic OpenRouter adapter with a certified
+`cohere/north-mini-code:free` synthetic-test-only profile. A live synthetic probe proved exact
+named-tool selection and continuation after discarding provider reasoning state. The adapter is not
+wired into startup and is not approved for real ERP content, production privacy, or Arabic HR
+quality.
+
 Step 17 is in progress on an uncommitted feature branch: deterministic, exact-arithmetic hybrid
 knowledge retrieval is evaluation-only and retains the semantic threshold status
 `unapproved_test_only`. It does not replace the production HR knowledge provider.
@@ -122,7 +128,7 @@ customer-policy quality and production-scale exact-search performance remain unv
 | Exact semantic retrieval | Implemented adapter | Provider-neutral deterministic embedding contracts, atomic complete generation sets, and exact pgvector cosine search; test provider only, with no approximate index, fallback, or production model |
 | Retrieval evaluation | Implemented contract | Deterministic offline lexical/semantic comparison, aggregate multilingual/source slices, explicit quality thresholds, and unconditional authorization-leak gates; synthetic test embeddings do not establish semantic quality |
 | Local Qwen3 embeddings | Test integration | Digest-pinned TEI CPU adapter, immutable Qwen3 revision, server-owned query transform and 1,024-token resource policy, pre-embed token-budget enforcement, strict identity handshake, and explicit semantic abstention policy; not production-approved |
-| Agent orchestration | Implemented contract | Stateless bounded model turns, immutable ordered assistant-call/result transcript, structurally bound general/knowledge/ERP/mixed evidence, gateway-only execution, citation enforcement, and mandatory agent audit; no production model provider or reasoning state |
+| Agent orchestration | Implemented contract | Stateless bounded model turns, immutable ordered assistant-call/result transcript, structurally bound evidence, gateway-only execution, citation enforcement, and mandatory audit; a synthetic-only OpenRouter adapter exists but no production model is wired |
 | HR write command | Planned | Leave request with preview, confirmation, and idempotency |
 | Additional ERP capabilities | Planned | Added independently after the first vertical slice passes security gates |
 | Cross-module orchestration | Planned | Enabled only when all required modules and permissions are available |
@@ -560,6 +566,12 @@ OTEL_EXPORTER_OTLP_ENDPOINT=
 
 Customer-specific database credentials, encryption material, API credentials, and storage access keys must be resolved at runtime from an approved secret manager. They must never appear in prompts, model-visible context, source control, or shared environment files.
 
+The optional North Mini Code integration test additionally requires
+`ERP_AI_REQUIRE_OPENROUTER_TESTS=1` and a server-supplied
+`ERP_AI_OPENROUTER_API_KEY`. It accepts synthetic test content only; `.env.example` contains an
+empty declaration, never a credential. See
+[`docs/contracts/openrouter-agent-model-provider.md`](docs/contracts/openrouter-agent-model-provider.md).
+
 ## Local development
 
 The current foundation uses Python 3.12 and `uv`:
@@ -573,6 +585,9 @@ uv run pytest
 
 These commands validate the trusted request-context slice and run in CI. No database, ERP,
 model, vector store, or external service is required.
+
+The OpenRouter live adapter test remains skipped unless its explicit enable flag and API key are
+both present. Ordinary unit tests use a mocked HTTP transport and make no external request.
 
 ### Planned developer experience
 

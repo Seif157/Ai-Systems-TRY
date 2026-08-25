@@ -90,6 +90,7 @@ Public failures use only `AGENT_UNAVAILABLE`, `AGENT_LIMIT_REACHED`, `AGENT_CATA
 only answer, response language, and validated citations. Orchestration traces and raw tool
 envelopes are never public.
 
-The transcript excludes provider-specific reasoning or continuation state. Whether a future
-OpenRouter Ox Alpha adapter can continue tool use without `reasoning_details` remains a synthetic
-live compatibility question and is not answered by this contract.
+The transcript excludes provider-specific reasoning or continuation state. The synthetic-only
+North Mini Code adapter proved that a continuation can succeed after discarding provider state,
+but this does not add provider state to the contract or approve production model use. See
+[`openrouter-agent-model-provider.md`](openrouter-agent-model-provider.md).
