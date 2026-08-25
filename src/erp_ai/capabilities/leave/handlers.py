@@ -141,6 +141,7 @@ class ListMyLeaveRequestsHandler:
             start_to=arguments.start_to,
             limit=arguments.limit,
             cursor=arguments.cursor,
+            authorization_snapshot_id=context.authorization_snapshot_id,
         )
 
         if len(page.items) > arguments.limit:

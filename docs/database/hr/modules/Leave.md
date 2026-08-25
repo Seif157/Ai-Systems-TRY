@@ -4,6 +4,19 @@
 
 ## Leave
 
+### Canonical structured-read additions
+
+`leave_balances` additionally has `legal_entity_id uuid NOT NULL`, stored
+`available_days numeric(7,2) NOT NULL`, `calculated_at timestamptz NOT NULL`,
+`source_watermark varchar(128) NOT NULL`, and `calculation_version varchar(64) NOT NULL`.
+Availability may be negative and is not generated or recalculated by AI.
+
+`leave_requests` additionally has immutable `legal_entity_id uuid NOT NULL`,
+`submitted_at timestamptz NOT NULL`, and
+`working_days_calculation_version varchar(64) NOT NULL`. A canonical row is submitted; drafts are
+outside the AI contract. Composite ownership constraints bind balance/request employee and leave
+type to the captured legal entity.
+
 ### `leave_accrual_logs`
 
 | Column | Type | Null | Default |

@@ -4,6 +4,14 @@
 
 ## Employee
 
+### Canonical structured-read additions
+
+`employees` additionally has `legal_entity_id uuid NOT NULL`, ERP-maintained
+`display_name varchar(200) NOT NULL`, and `profile_freshness_at timestamptz NOT NULL`.
+`manager_display_name` comes from the manager employee's canonical `display_name`; profile
+`job_title` comes from `positions.position_title`. The AI adapter never concatenates/localizes raw
+name parts and never falls back to nullable legacy `updated_at`.
+
 ### `employee_export_jobs`
 
 | Column | Type | Null | Default |

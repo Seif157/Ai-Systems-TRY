@@ -60,7 +60,11 @@ class FakeHrCoreProvider:
         self.calls: list[tuple[str, str]] = []
 
     async def get_my_employee_profile(
-        self, *, customer_environment_id: str, employee_id: str
+        self,
+        *,
+        customer_environment_id: str,
+        employee_id: str,
+        authorized_legal_entity_ids: tuple[str, ...],
     ) -> EmployeeProfileRecord | None:
         self.calls.append((customer_environment_id, employee_id))
         if self.raises:

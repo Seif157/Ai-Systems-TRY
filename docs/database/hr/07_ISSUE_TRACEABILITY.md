@@ -1,5 +1,12 @@
 # Issue Traceability
 
+## ERP-owner Decision A: structured AI reads
+
+Decision A closes the Step 19 mapping gaps by defining stored leave availability and calculation
+metadata, immutable leave-request submission/version/entity fields, canonical employee display and
+freshness fields, direct transaction ownership, and five versioned `ai_read` views. The exact
+contract and deployment certification are tracked in `05A_STRUCTURED_AI_READ_CONTRACT.md`.
+
 ## Verified report issues
 
 | # | Issue | V2 resolution |
@@ -44,4 +51,3 @@
 | AI could access raw schema/data | Allowlisted tools, no unrestricted SQL, RAG/data separation |
 | AI actions could duplicate or bypass approval | Confirmation, idempotency, command execution, approval, audit |
 | RAG could leak customer/role data | Strict customer/module/legal-entity/role/effective-date metadata filters |
-

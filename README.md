@@ -84,6 +84,11 @@ reduced some aggregate zero-recall cases, but semantic and hybrid quality remain
 production and neither is promoted. Real approved documents and independent human labels remain
 mandatory, and the observed holdout must not be used to tune version 2.
 
+Step 19 adds an uncommitted structured-ERP PostgreSQL adapter boundary for the four existing HR
+Core and Leave reads. It uses static database-per-customer routes, reader-only `ai_read` views,
+startup contract verification, repeatable-read/read-only transactions, and signed authorization-
+bound keyset cursors. ERP schema migration and deployment certification remain ERP-owner work.
+
 Step 17 is in progress on an uncommitted feature branch: deterministic, exact-arithmetic hybrid
 knowledge retrieval is evaluation-only and retains the semantic threshold status
 `unapproved_test_only`. It does not replace the production HR knowledge provider.

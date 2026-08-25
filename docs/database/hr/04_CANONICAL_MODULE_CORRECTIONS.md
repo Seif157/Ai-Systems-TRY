@@ -74,6 +74,9 @@ This document defines the final V2 changes to the complete table inventory in `m
 ### `employees`
 
 - Add `legal_entity_id uuid NOT NULL`.
+- Add ERP-maintained `display_name varchar(200) NOT NULL` and
+  `profile_freshness_at timestamptz NOT NULL`. AI clients never assemble names or fall back to
+  `updated_at`; freshness changes whenever any exposed profile value changes.
 - Replace global employee-number uniqueness with `UNIQUE(legal_entity_id,employee_number)`.
 - Enforce case-insensitive `UNIQUE(legal_entity_id,lower(email_work))`.
 - Store `national_id`, `passport_number`, personal email, phone, address, religion, blood type, and other Restricted fields encrypted where required.
@@ -187,6 +190,11 @@ This document defines the final V2 changes to the complete table inventory in `m
 ### `leave_balances`
 
 - Add `UNIQUE(employee_id,leave_type_id,fiscal_year)`.
+- Add immutable `legal_entity_id uuid NOT NULL` plus composite ownership constraints for employee
+  and leave type.
+- Add stored `available_days numeric(7,2) NOT NULL`, `calculated_at timestamptz NOT NULL`,
+  `source_watermark varchar(128) NOT NULL`, and `calculation_version varchar(64) NOT NULL`, with no
+  metadata defaults. Availability may be negative and is never reconstructed by an AI reader.
 - Treat balance columns as a cache of the authoritative leave ledger.
 - Add `calculated_at`, `source_watermark`, and `calculation_version`.
 - Add consistency checks: all components nonnegative unless policy allows negative available balance; pending/used cannot silently exceed authorized amounts.
@@ -211,6 +219,11 @@ Required columns: ledger entry ID, employee, leave type, effective date, entry t
 
 ### `leave_requests`
 
+- Add immutable `legal_entity_id uuid NOT NULL` plus composite ownership constraints for employee
+  and leave type.
+- Add immutable `submitted_at timestamptz NOT NULL` and
+  `working_days_calculation_version varchar(64) NOT NULL`. Canonical rows are submitted requests;
+  drafts are outside the AI read contract. Submission time is never inferred from `created_at`.
 - Compute `working_days` in the domain service from the applicable work calendar and persist a calculation snapshot/version.
 - Add half-day consistency checks: half-day requires one-day range, valid period, and 0.5 working day; non-half-day requires null period.
 - Add an exclusion/validated trigger preventing overlapping pending/approved requests for the same employee, while allowing explicitly configured partial-day combinations.
@@ -547,4 +560,3 @@ Record application, from/to stage, status, actor, reason, score snapshot, occurr
 ### `training_feedbacks`
 
 - Add employee FK and enforce that only an attended/completed participant can submit one feedback record.
-

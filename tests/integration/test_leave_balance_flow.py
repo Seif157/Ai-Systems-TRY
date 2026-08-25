@@ -39,7 +39,7 @@ def balance(customer: str, **overrides: object) -> LeaveBalanceRecord:
         "available_days": Decimal("11.50"),
         "calculated_at": datetime(2026, 8, 22, 9, 0, tzinfo=ZoneInfo("Africa/Cairo")),
         "source_watermark": f"watermark_{customer}",
-        "calculation_version": "v1",
+        "calculation_version": "1.0.0",
     }
     payload.update(overrides)
     return LeaveBalanceRecord.model_validate(payload, strict=True)

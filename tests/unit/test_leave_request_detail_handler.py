@@ -52,7 +52,7 @@ def detail(**overrides: object) -> LeaveRequestDetailRecord:
         "status": "approved",
         "submitted_at": datetime(2026, 8, 22, 9, 0, tzinfo=ZoneInfo("Africa/Cairo")),
         "updated_at": None,
-        "working_days_calculation_version": "calendar_v1",
+        "working_days_calculation_version": "1.0.0",
         "customer_environment_id": "customer_a",
         "status_history": (history(1), history(2)),
     }

@@ -91,6 +91,11 @@ Recommended order:
 
 ## Database acceptance tests
 
+The ERP database owner, not this AI repository, migrates and certifies the structured-read columns,
+constraints, roles, and `ai_read` views defined in `05A_STRUCTURED_AI_READ_CONTRACT.md`. Deployment
+must run the documented privileged certification before enabling a customer route. Runtime AI
+credentials are deliberately unable to perform privileged base-table inspection.
+
 At minimum, automated tests must prove:
 
 - All documented FKs exist and reject invalid references.
@@ -121,4 +126,3 @@ At minimum, automated tests must prove:
 - Approved performance baseline.
 - Signed security, HR, finance, and product acceptance for their domains.
 - Zero AI authorization/cross-customer leaks in the evaluation suite.
-

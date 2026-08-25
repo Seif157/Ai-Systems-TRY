@@ -14,4 +14,5 @@ class HrCoreReadProvider(Protocol):
         *,
         customer_environment_id: str,
         employee_id: str,
+        authorized_legal_entity_ids: tuple[str, ...],
     ) -> EmployeeProfileRecord | None: ...

@@ -38,6 +38,21 @@ NonEmptyMetadata = Annotated[
     BeforeValidator(_strip_text),
     StringConstraints(strict=True, min_length=1),
 ]
+CalculationVersion = Annotated[
+    str,
+    BeforeValidator(_strip_text),
+    StringConstraints(
+        strict=True,
+        min_length=5,
+        max_length=64,
+        pattern=r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$",
+    ),
+]
+SourceWatermark = Annotated[
+    str,
+    BeforeValidator(_strip_text),
+    StringConstraints(strict=True, min_length=1, max_length=128),
+]
 NonnegativeDays = Annotated[
     Decimal,
     Field(strict=True, ge=Decimal("0"), max_digits=7, decimal_places=2),
@@ -181,8 +196,8 @@ class LeaveBalanceRecord(BaseModel):
     pending_days: NonnegativeDays
     available_days: AvailableDays
     calculated_at: datetime
-    source_watermark: NonEmptyMetadata
-    calculation_version: NonEmptyMetadata
+    source_watermark: SourceWatermark
+    calculation_version: CalculationVersion
 
     @field_validator("calculated_at")
     @classmethod
@@ -207,7 +222,7 @@ class LeaveBalanceItem(BaseModel):
     pending_days: NonnegativeDays
     available_days: AvailableDays
     calculated_at: datetime
-    calculation_version: NonEmptyMetadata
+    calculation_version: CalculationVersion
 
     @field_validator("calculated_at")
     @classmethod
@@ -267,7 +282,7 @@ class LeaveRequestSummaryRecord(BaseModel):
     status: LeaveRequestStatus
     submitted_at: datetime
     updated_at: datetime | None = None
-    working_days_calculation_version: NonEmptyMetadata
+    working_days_calculation_version: CalculationVersion
 
     @field_validator("half_day_period", mode="before")
     @classmethod
@@ -375,7 +390,7 @@ class LeaveRequestSummary(BaseModel):
     status: LeaveRequestStatus
     submitted_at: datetime
     updated_at: datetime | None
-    working_days_calculation_version: NonEmptyMetadata
+    working_days_calculation_version: CalculationVersion
 
 
 class LeaveRequestStatusTransition(BaseModel):

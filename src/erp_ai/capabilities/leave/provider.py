@@ -35,6 +35,7 @@ class LeaveReadProvider(Protocol):
         start_to: date | None,
         limit: int,
         cursor: str | None,
+        authorization_snapshot_id: str,
     ) -> LeaveRequestPageRecord: ...
 
     async def get_my_leave_request(

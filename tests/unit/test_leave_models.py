@@ -29,7 +29,7 @@ def record_payload(**overrides: object) -> dict[str, object]:
         "available_days": Decimal("11.50"),
         "calculated_at": datetime(2026, 8, 22, 9, 0, tzinfo=ZoneInfo("Africa/Cairo")),
         "source_watermark": "ledger_2026_08_22_001",
-        "calculation_version": "leave_balance_v1",
+        "calculation_version": "1.0.0",
     }
     payload.update(overrides)
     return payload

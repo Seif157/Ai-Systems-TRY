@@ -38,7 +38,7 @@ def record(**overrides: object) -> LeaveRequestSummaryRecord:
         "status": "pending",
         "submitted_at": datetime(2026, 8, 22, 9, 0, tzinfo=ZoneInfo("Africa/Cairo")),
         "updated_at": None,
-        "working_days_calculation_version": "calendar_v1",
+        "working_days_calculation_version": "1.0.0",
     }
     payload.update(overrides)
     return LeaveRequestSummaryRecord.model_validate(payload, strict=True)
@@ -114,6 +114,7 @@ def test_handler_forwards_trusted_identifiers_and_validated_filters() -> None:
             "start_to": date(2026, 12, 31),
             "limit": 10,
             "cursor": "opaque.current",
+            "authorization_snapshot_id": "snapshot_a",
         }
     ]
     assert result.next_cursor == "opaque.next"

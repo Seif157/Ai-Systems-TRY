@@ -46,7 +46,7 @@ def request_record(customer: str, **overrides: object) -> LeaveRequestSummaryRec
         "status": "pending",
         "submitted_at": datetime(2026, 8, 22, 9, 0, tzinfo=ZoneInfo("Africa/Cairo")),
         "updated_at": None,
-        "working_days_calculation_version": "calendar_v1",
+        "working_days_calculation_version": "1.0.0",
     }
     payload.update(overrides)
     return LeaveRequestSummaryRecord.model_validate(payload, strict=True)

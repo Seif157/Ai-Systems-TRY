@@ -79,7 +79,11 @@ class RecordingAgentAuditSink:
 
 class FakeHrProvider:
     async def get_my_employee_profile(
-        self, *, customer_environment_id: str, employee_id: str
+        self,
+        *,
+        customer_environment_id: str,
+        employee_id: str,
+        authorized_legal_entity_ids: tuple[str, ...],
     ) -> EmployeeProfileRecord | None:
         return EmployeeProfileRecord(
             employee_id=employee_id,
@@ -116,7 +120,7 @@ class FakeLeaveProvider:
                 available_days=Decimal("12"),
                 calculated_at=NOW,
                 source_watermark="watermark_1",
-                calculation_version="v1",
+                calculation_version="1.0.0",
             ),
         )
 

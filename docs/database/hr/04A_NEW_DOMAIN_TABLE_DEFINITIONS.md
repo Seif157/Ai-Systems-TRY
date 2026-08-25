@@ -2,6 +2,10 @@
 
 These tables complete the canonical V2 design. They follow all global audit, lifecycle, FK, security, and indexing rules.
 
+The structured AI read views and source mappings are defined in
+[`05A_STRUCTURED_AI_READ_CONTRACT.md`](05A_STRUCTURED_AI_READ_CONTRACT.md). They are ERP-owned
+deployment objects, not migrations owned by the AI service.
+
 ## `leave_ledger_entries`
 
 Authoritative append-only source for leave movements.
@@ -280,4 +284,3 @@ Authoritative skill history; `employee_skills.current_level` is a current-state 
 - FKs employee, skill, assessor, secure file; all history-preserving.
 - Checks: level 1–5; expiry after assessment; source-specific assessor/evidence requirements.
 - Append-only; corrections create replacement assessments.
-

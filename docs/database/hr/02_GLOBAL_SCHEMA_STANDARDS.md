@@ -82,6 +82,11 @@ Country and currency codes are never stored in unbounded `char` columns.
 - Multi-row summaries must name an authoritative source and a refresh/reconciliation mechanism.
 - A cache table records `calculated_at`, `source_watermark`, and `calculation_version`.
 - AI responses must expose freshness for cached figures.
+- Canonical leave-balance caches store `available_days numeric(7,2) NOT NULL`, which may be
+  negative, plus `calculated_at timestamptz NOT NULL`, `source_watermark varchar(128) NOT NULL`,
+  and `calculation_version varchar(64) NOT NULL`. Consumers must not recalculate availability.
+- `source_watermark` is trimmed and nonblank; calculation versions use complete
+  `MAJOR.MINOR.PATCH` SemVer.
 
 ## 9. Uniqueness and case handling
 
@@ -134,4 +139,3 @@ Highly Restricted data requires encryption, masking, purpose-based authorization
 - A domain state machine validates allowed transitions.
 - Every transition is appended to `workflow_status_history`.
 - Finalized, posted, generated, published, approved, or acknowledged records cannot be silently edited.
-

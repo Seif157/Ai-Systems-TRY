@@ -32,6 +32,9 @@ Disabled tools are not sent to the model. The server also rejects any manually f
 - Write tools call domain commands; they never issue arbitrary INSERT/UPDATE/DELETE statements.
 - Database credentials are customer-specific, least-privileged, rotated, and unavailable to prompts.
 - Highly Restricted columns are omitted by default and returned only by purpose-specific tools.
+- The approved direct PostgreSQL exception for the four initial read tools is limited to the five
+  versioned `ai_read` views in `05A_STRUCTURED_AI_READ_CONTRACT.md`. Runtime readers have no
+  base-table privileges and verify the view contract before serving traffic.
 
 ## 4. Initial HR Core + Leave tools
 
