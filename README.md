@@ -89,6 +89,11 @@ Core and Leave reads. It uses static database-per-customer routes, reader-only `
 startup contract verification, repeatable-read/read-only transactions, and signed authorization-
 bound keyset cursors. ERP schema migration and deployment certification remain ERP-owner work.
 
+Step 20A adds an uncommitted provider-neutral model tool-interaction transcript. It preserves each
+assistant call's exact bounded JSON arguments and immutable parsed projection beside the matching
+untrusted public tool result, in original order. It adds no model provider, network access,
+reasoning state, credentials, or production wiring.
+
 Step 17 is in progress on an uncommitted feature branch: deterministic, exact-arithmetic hybrid
 knowledge retrieval is evaluation-only and retains the semantic threshold status
 `unapproved_test_only`. It does not replace the production HR knowledge provider.
@@ -117,7 +122,7 @@ customer-policy quality and production-scale exact-search performance remain unv
 | Exact semantic retrieval | Implemented adapter | Provider-neutral deterministic embedding contracts, atomic complete generation sets, and exact pgvector cosine search; test provider only, with no approximate index, fallback, or production model |
 | Retrieval evaluation | Implemented contract | Deterministic offline lexical/semantic comparison, aggregate multilingual/source slices, explicit quality thresholds, and unconditional authorization-leak gates; synthetic test embeddings do not establish semantic quality |
 | Local Qwen3 embeddings | Test integration | Digest-pinned TEI CPU adapter, immutable Qwen3 revision, server-owned query transform and 1,024-token resource policy, pre-embed token-budget enforcement, strict identity handshake, and explicit semantic abstention policy; not production-approved |
-| Agent orchestration | Implemented contract | Stateless bounded model turns, structurally bound general/knowledge/ERP/mixed evidence, deterministic input/catalog budgets, gateway-only execution, citation enforcement, and mandatory agent audit; no production model provider |
+| Agent orchestration | Implemented contract | Stateless bounded model turns, immutable ordered assistant-call/result transcript, structurally bound general/knowledge/ERP/mixed evidence, gateway-only execution, citation enforcement, and mandatory agent audit; no production model provider or reasoning state |
 | HR write command | Planned | Leave request with preview, confirmation, and idempotency |
 | Additional ERP capabilities | Planned | Added independently after the first vertical slice passes security gates |
 | Cross-module orchestration | Planned | Enabled only when all required modules and permissions are available |

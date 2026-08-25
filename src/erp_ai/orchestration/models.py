@@ -1,5 +1,7 @@
 """Strict immutable public and model-facing orchestration contracts."""
 
+import json
+import math
 from collections.abc import Mapping
 from enum import Enum
 from types import MappingProxyType
@@ -12,6 +14,7 @@ from pydantic import (
     StringConstraints,
     field_serializer,
     field_validator,
+    model_validator,
 )
 
 from erp_ai.capabilities.models import Code, Version
@@ -30,6 +33,10 @@ CallId = Annotated[
     StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=128),
 ]
 SafeMessage = Annotated[str, StringConstraints(strict=True, min_length=1, max_length=300)]
+MAXIMUM_TOOL_ARGUMENT_BYTES = 16_384
+MAXIMUM_ARGUMENT_DEPTH = 10
+MAXIMUM_ARGUMENT_NODES = 512
+MAXIMUM_SAFE_JSON_INTEGER = 2**53 - 1
 
 
 def _freeze_json(value: object) -> object:
@@ -50,6 +57,93 @@ def to_mutable_json(value: object) -> object:
     if isinstance(value, tuple):
         return [to_mutable_json(item) for item in value]
     return value
+
+
+def _reject_json_constant(value: str) -> object:
+    raise ValueError(f"unsupported JSON constant: {value}")
+
+
+def _object_without_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON object keys are not allowed")
+        result[key] = value
+    return result
+
+
+def _json_depth_and_nodes(value: object, depth: int = 1) -> tuple[int, int]:
+    if isinstance(value, dict):
+        children = tuple(_json_depth_and_nodes(item, depth + 1) for item in value.values())
+    elif isinstance(value, list):
+        children = tuple(_json_depth_and_nodes(item, depth + 1) for item in value)
+    else:
+        return depth, 1
+    return (
+        max((child_depth for child_depth, _ in children), default=depth),
+        1 + sum(nodes for _, nodes in children),
+    )
+
+
+def _validate_safe_numbers(value: object) -> None:
+    if isinstance(value, bool) or value is None or isinstance(value, str):
+        return
+    if isinstance(value, int):
+        if abs(value) > MAXIMUM_SAFE_JSON_INTEGER:
+            raise ValueError("JSON integer exceeds the interoperable safe range")
+        return
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError("JSON numbers must be finite")
+        return
+    if isinstance(value, dict):
+        for item in value.values():
+            _validate_safe_numbers(item)
+        return
+    if isinstance(value, list):
+        for item in value:
+            _validate_safe_numbers(item)
+        return
+    raise ValueError("arguments must contain only JSON-compatible values")
+
+
+def _parse_arguments_json(value: str) -> dict[str, object]:
+    if len(value.encode("utf-8")) > MAXIMUM_TOOL_ARGUMENT_BYTES:
+        raise ValueError("serialized tool arguments exceed the byte limit")
+    try:
+        parsed = json.loads(
+            value,
+            object_pairs_hook=_object_without_duplicate_keys,
+            parse_constant=_reject_json_constant,
+        )
+    except (RecursionError, json.JSONDecodeError) as error:
+        raise ValueError("tool arguments must be one valid JSON object") from error
+    if not isinstance(parsed, dict):
+        raise ValueError("tool arguments must contain exactly one JSON object")
+    try:
+        _validate_safe_numbers(parsed)
+        depth, nodes = _json_depth_and_nodes(parsed)
+    except RecursionError as error:
+        raise ValueError("tool arguments exceed structural limits") from error
+    if depth > MAXIMUM_ARGUMENT_DEPTH or nodes > MAXIMUM_ARGUMENT_NODES:
+        raise ValueError("tool arguments exceed structural limits")
+    return parsed
+
+
+def _json_values_equivalent(left: object, right: object) -> bool:
+    return json.dumps(
+        left,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    ) == json.dumps(
+        right,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
 
 
 class AgentErrorCode(str, Enum):
@@ -125,7 +219,7 @@ class ModelToolDefinition(BaseModel):
 
 
 class ToolResultMessage(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True, hide_input_in_errors=True)
 
     call_id: CallId
     tool_name: Code
@@ -140,14 +234,29 @@ class ToolResultMessage(BaseModel):
 
 
 class ModelTurnRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True, hide_input_in_errors=True)
 
     policy_instructions: tuple[str, ...]
     user_message: str
     response_language: LanguageCode
     tools: tuple[ModelToolDefinition, ...]
-    tool_results: tuple[ToolResultMessage, ...]
+    interactions: tuple["ModelToolInteraction", ...] = Field(repr=False)
     turn_number: int = Field(strict=True, ge=1)
+
+    @model_validator(mode="after")
+    def validate_interactions(self) -> "ModelTurnRequest":
+        call_ids = tuple(item.assistant_call.call_id for item in self.interactions)
+        if len(set(call_ids)) != len(call_ids):
+            raise ValueError("duplicate interaction call IDs are not allowed")
+        for interaction in self.interactions:
+            ModelToolInteraction.model_validate(
+                {
+                    "assistant_call": interaction.assistant_call,
+                    "tool_result": interaction.tool_result,
+                },
+                strict=True,
+            )
+        return self
 
 
 class ModelFinalAnswer(BaseModel):
@@ -184,13 +293,18 @@ class ModelFinalAnswer(BaseModel):
 
 class ModelToolCall(BaseModel):
     model_config = ConfigDict(
-        extra="forbid", frozen=True, strict=True, arbitrary_types_allowed=True
+        extra="forbid",
+        frozen=True,
+        strict=True,
+        arbitrary_types_allowed=True,
+        hide_input_in_errors=True,
     )
 
     response_type: Literal["tool_call"] = "tool_call"
     call_id: CallId
     tool_name: Code
     version: Version
+    arguments_json: str = Field(strict=True, repr=False)
     arguments: Mapping[str, object] = Field(repr=False)
 
     @field_validator("arguments", mode="after")
@@ -200,11 +314,90 @@ class ModelToolCall(BaseModel):
         assert isinstance(frozen, Mapping)
         return frozen
 
+    @model_validator(mode="after")
+    def raw_and_parsed_arguments_match(self) -> "ModelToolCall":
+        parsed = _parse_arguments_json(self.arguments_json)
+        if not _json_values_equivalent(parsed, to_mutable_json(self.arguments)):
+            raise ValueError("raw and parsed tool arguments do not match")
+        return self
+
+    @classmethod
+    def from_arguments_json(
+        cls, *, call_id: str, tool_name: str, version: str, arguments_json: str
+    ) -> "ModelToolCall":
+        """Preserve provider JSON exactly while deriving its immutable parsed projection."""
+
+        parsed = _parse_arguments_json(arguments_json)
+        return cls(
+            call_id=call_id,
+            tool_name=tool_name,
+            version=version,
+            arguments_json=arguments_json,
+            arguments=parsed,
+        )
+
+    @classmethod
+    def from_arguments(
+        cls, *, call_id: str, tool_name: str, version: str, arguments: Mapping[str, object]
+    ) -> "ModelToolCall":
+        """Build deterministic compact sorted JSON for fake and test providers."""
+
+        mutable = to_mutable_json(_freeze_json(arguments))
+        arguments_json = json.dumps(
+            mutable, ensure_ascii=False, sort_keys=True, separators=(",", ":"), allow_nan=False
+        )
+        return cls.from_arguments_json(
+            call_id=call_id,
+            tool_name=tool_name,
+            version=version,
+            arguments_json=arguments_json,
+        )
+
     @field_serializer("arguments")
     def serialize_arguments(self, value: Mapping[str, object]) -> dict[str, object]:
         serialized = to_mutable_json(value)
         assert isinstance(serialized, dict)
         return serialized
+
+
+class ModelToolInteraction(BaseModel):
+    """One ordered assistant call immediately paired with its untrusted public result."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True, hide_input_in_errors=True)
+
+    assistant_call: ModelToolCall = Field(repr=False)
+    tool_result: ToolResultMessage = Field(repr=False)
+
+    @model_validator(mode="after")
+    def pair_call_and_result(self) -> "ModelToolInteraction":
+        call = self.assistant_call
+        message = self.tool_result
+        ModelToolCall.from_arguments_json(
+            call_id=call.call_id,
+            tool_name=call.tool_name,
+            version=call.version,
+            arguments_json=call.arguments_json,
+        )
+        result_type = type(message.result)
+        if result_type not in (PublicToolSuccess, PublicToolFailure):
+            raise ValueError("tool interaction contains an invalid public result")
+        validated_result = result_type.model_validate(
+            message.result.model_dump(mode="python"), strict=True
+        )
+        ToolResultMessage.model_validate(
+            {
+                "call_id": message.call_id,
+                "tool_name": message.tool_name,
+                "result": validated_result,
+                "content_trust": message.content_trust,
+            },
+            strict=True,
+        )
+        if call.call_id != message.call_id or call.tool_name != message.tool_name:
+            raise ValueError("tool result does not match its assistant call")
+        if call.tool_name != message.result.tool_name or call.version != message.result.version:
+            raise ValueError("public tool result does not match its assistant call")
+        return self
 
 
 type ModelResponse = Annotated[

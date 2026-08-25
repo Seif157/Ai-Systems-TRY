@@ -1,6 +1,7 @@
 from erp_ai.orchestration import (
     AgentAuditEvent,
     ModelFinalAnswer,
+    ModelToolInteraction,
     ModelTurnRequest,
     PublicChatFailure,
     PublicChatSuccess,
@@ -28,7 +29,7 @@ def test_model_turn_and_tool_result_roles_exclude_trusted_context() -> None:
         "user_message",
         "response_language",
         "tools",
-        "tool_results",
+        "interactions",
         "turn_number",
     }
     assert set(ToolResultMessage.model_fields) == {
@@ -37,6 +38,8 @@ def test_model_turn_and_tool_result_roles_exclude_trusted_context() -> None:
         "result",
         "content_trust",
     }
+    assert set(ModelToolInteraction.model_fields) == {"assistant_call", "tool_result"}
+    assert set(ModelToolInteraction.model_fields["assistant_call"].metadata) == set()
     forbidden = {
         "trusted_context",
         "customer_environment_id",
@@ -51,6 +54,7 @@ def test_model_turn_and_tool_result_roles_exclude_trusted_context() -> None:
         "audit_event",
     }
     assert forbidden.isdisjoint(ModelTurnRequest.model_fields)
+    assert forbidden.isdisjoint(ModelToolInteraction.model_fields)
     assert set(ModelFinalAnswer.model_fields) == {
         "response_type",
         "answer",

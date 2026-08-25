@@ -29,6 +29,7 @@ from erp_ai.orchestration import (
     AnswerBasis,
     ModelFinalAnswer,
     ModelToolCall,
+    ModelToolInteraction,
     ModelTurnRequest,
     PublicChatFailure,
     PublicChatSuccess,
@@ -201,7 +202,7 @@ def context(
 
 
 def call(call_id: str, tool: str, arguments: dict[str, object]) -> ModelToolCall:
-    return ModelToolCall(
+    return ModelToolCall.from_arguments(
         call_id=call_id,
         tool_name=tool,
         version="1.0.0",
@@ -339,10 +340,187 @@ def test_production_erp_tools_complete_through_gateway(
     result = execute(orchestrator)
     assert isinstance(result, PublicChatSuccess)
     assert len(tool_sink.events) == 1
-    message = model.requests[1].tool_results[0]
+    message = model.requests[1].interactions[0].tool_result
     assert message.content_trust == "untrusted_tool_result"
     assert message.call_id == "call_1"
     assert_one_agent_audit(agent_sink)
+
+
+def test_multiple_turns_receive_exact_ordered_interactions_without_reexecution() -> None:
+    raw = '{ "query" : "العربية and English" }'
+    first = ModelToolCall.from_arguments_json(
+        call_id="call_1",
+        tool_name="search_hr_knowledge",
+        version="1.0.0",
+        arguments_json=raw,
+    )
+    second = call("call_2", "get_my_employee_profile", {})
+    model = ScriptedModel(
+        [
+            first,
+            second,
+            ModelFinalAnswer(
+                answer="Synthetic mixed answer",
+                answer_basis="mixed",
+                evidence_call_ids=("call_1", "call_2"),
+                citation_ids=("cite_2",),
+            ),
+        ]
+    )
+    orchestrator, tool_sink, agent_sink, knowledge = build(model)
+
+    result = execute(orchestrator)
+
+    assert isinstance(result, PublicChatSuccess)
+    assert tuple(len(request.interactions) for request in model.requests) == (0, 1, 2)
+    assert model.requests[1].interactions[0].assistant_call.arguments_json == raw
+    assert tuple(item.assistant_call.call_id for item in model.requests[2].interactions) == (
+        "call_1",
+        "call_2",
+    )
+    assert len(tool_sink.events) == 2
+    assert len(knowledge.requests) == 1
+    assert len(agent_sink.events) == 1
+
+
+def test_default_four_call_limit_is_recomputed_from_complete_transcript() -> None:
+    model = ScriptedModel(
+        [
+            call(f"call_{index}", "search_hr_knowledge", {"query": f"query_{index}"})
+            for index in range(1, 6)
+        ]
+    )
+    orchestrator, tool_sink, agent_sink, knowledge = build(model)
+
+    result = execute(orchestrator)
+
+    assert isinstance(result, PublicChatFailure)
+    assert result.safe_error_code is AgentErrorCode.AGENT_LIMIT_REACHED
+    assert tuple(len(request.interactions) for request in model.requests) == (0, 1, 2, 3, 4)
+    assert len(tool_sink.events) == 4
+    assert len(knowledge.requests) == 4
+    assert agent_sink.events[0].internal_reason == "tool_call_limit_reached"
+
+
+def test_constructed_transcript_bypasses_are_recomputed_fail_closed() -> None:
+    source_model = ScriptedModel(
+        [
+            call("call_1", "get_my_employee_profile", {}),
+            ModelFinalAnswer(
+                answer="Synthetic",
+                answer_basis="erp_data",
+                evidence_call_ids=("call_1",),
+                citation_ids=(),
+            ),
+        ]
+    )
+    source, _, _, _ = build(source_model)
+    assert isinstance(execute(source), PublicChatSuccess)
+    observed = source_model.requests[1].interactions[0]
+    constructed_call = ModelToolCall.model_construct(
+        response_type=observed.assistant_call.response_type,
+        call_id=observed.assistant_call.call_id,
+        tool_name=observed.assistant_call.tool_name,
+        version=observed.assistant_call.version,
+        arguments_json=observed.assistant_call.arguments_json,
+        arguments=observed.assistant_call.arguments,
+    )
+    constructed = ModelToolInteraction.model_construct(
+        assistant_call=constructed_call,
+        tool_result=observed.tool_result,
+    )
+    limited, _, _, _ = build(
+        ScriptedModel([]),
+        limits=AgentLimits(
+            maximum_tool_argument_bytes=1,
+            maximum_tool_result_bytes=1,
+        ),
+    )
+
+    assert limited._transcript_failure((constructed,)) == (
+        AgentErrorCode.AGENT_LIMIT_REACHED,
+        "tool_argument_limit_reached",
+    )
+    result_limited, _, _, _ = build(
+        ScriptedModel([]), limits=AgentLimits(maximum_tool_result_bytes=1)
+    )
+    assert result_limited._transcript_failure((constructed,)) == (
+        AgentErrorCode.AGENT_LIMIT_REACHED,
+        "tool_result_size_limit_reached",
+    )
+    zero_limit, _, _, _ = build(ScriptedModel([]), limits=AgentLimits(maximum_tool_calls=0))
+    assert zero_limit._transcript_failure((constructed,)) == (
+        AgentErrorCode.AGENT_LIMIT_REACHED,
+        "tool_call_limit_reached",
+    )
+    assert source._transcript_failure((constructed, constructed)) == (
+        AgentErrorCode.INVALID_MODEL_RESPONSE,
+        "duplicate_call_id",
+    )
+    invalid_call = ModelToolCall.model_construct(
+        response_type="tool_call",
+        call_id="private-call",
+        tool_name="get_my_employee_profile",
+        version="1.0.0",
+        arguments_json='{"private_query":',
+        arguments={},
+    )
+    invalid_interaction = ModelToolInteraction.model_construct(
+        assistant_call=invalid_call,
+        tool_result=observed.tool_result,
+    )
+    assert source._transcript_failure((invalid_interaction,)) == (
+        AgentErrorCode.INVALID_MODEL_RESPONSE,
+        "invalid_interaction_transcript",
+    )
+
+
+def test_pre_turn_transcript_failure_stops_before_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model = ScriptedModel([])
+    orchestrator, tool_sink, agent_sink, _ = build(model)
+    monkeypatch.setattr(
+        AgentOrchestrator,
+        "_transcript_failure",
+        lambda self, interactions: (
+            AgentErrorCode.INVALID_MODEL_RESPONSE,
+            "invalid_interaction_transcript",
+        ),
+    )
+
+    result = execute(orchestrator)
+
+    assert isinstance(result, PublicChatFailure)
+    assert result.safe_error_code is AgentErrorCode.INVALID_MODEL_RESPONSE
+    assert model.requests == []
+    assert tool_sink.attempts == []
+    assert agent_sink.events[0].internal_reason == "invalid_interaction_transcript"
+
+
+def test_constructed_divergent_model_call_fails_before_gateway_invocation() -> None:
+    invalid = ModelToolCall.model_construct(
+        response_type="tool_call",
+        call_id="call_1",
+        tool_name="get_my_employee_profile",
+        version="1.0.0",
+        arguments_json='{"selected_request_id":"private"}',
+        arguments={"selected_request_id": "different"},
+    )
+    model = ScriptedModel([invalid])
+    orchestrator, tool_sink, agent_sink, _ = build(model)
+
+    result = execute(orchestrator)
+
+    assert isinstance(result, PublicChatFailure)
+    assert result.safe_error_code is AgentErrorCode.INVALID_MODEL_RESPONSE
+    assert tool_sink.attempts == []
+    assert len(agent_sink.events) == 1
+    serialized_public = json.dumps(result.model_dump(mode="json"), sort_keys=True)
+    serialized_audit = json.dumps(agent_sink.events[0].model_dump(mode="json"), sort_keys=True)
+    for sensitive in ("selected_request_id", "private", "different", "call_1"):
+        assert sensitive not in serialized_public
+        assert sensitive not in serialized_audit
 
 
 def test_knowledge_flow_validates_citations_and_keeps_content_out_of_policy() -> None:
@@ -364,7 +542,7 @@ def test_knowledge_flow_validates_citations_and_keeps_content_out_of_policy() ->
     assert len(knowledge.requests) == 1
     assert "Untrusted retrieved policy content." not in repr(model.requests[1].policy_instructions)
     assert "Untrusted retrieved policy content." in repr(
-        model.requests[1].tool_results[0].model_dump()
+        model.requests[1].interactions[0].tool_result.model_dump()
     )
     assert len(tool_sink.events) == 1
     assert_one_agent_audit(agent_sink)
@@ -397,7 +575,8 @@ def test_unknown_or_unauthorized_tool_failure_can_be_explained_by_model(
     orchestrator, tool_sink, agent_sink, _ = build(model)
     result = execute(orchestrator, ctx=ctx)
     assert isinstance(result, PublicChatSuccess)
-    assert model.requests[1].tool_results[0].result.safe_error_code.value == "TOOL_UNAVAILABLE"  # type: ignore[union-attr]
+    failure = model.requests[1].interactions[0].tool_result.result
+    assert failure.safe_error_code.value == "TOOL_UNAVAILABLE"  # type: ignore[union-attr]
     assert len(tool_sink.events) == 1
     assert_one_agent_audit(agent_sink)
 
@@ -456,12 +635,20 @@ def test_accumulated_tool_result_limit_fails_safely() -> None:
     assert agent_sink.events[0].internal_reason == "tool_result_size_limit_reached"
 
 
-@pytest.mark.parametrize("response", [RuntimeError("private model failure"), object()])
+@pytest.mark.parametrize(
+    "response",
+    [RuntimeError("private model failure with query and record selector"), object()],
+)
 def test_provider_failure_and_malformed_response_are_safe(response: object) -> None:
     orchestrator, _, agent_sink, _ = build(ScriptedModel([response]))
     result = execute(orchestrator)
     assert isinstance(result, PublicChatFailure)
     assert "private" not in result.safe_message
+    serialized_public = json.dumps(result.model_dump(mode="json"), sort_keys=True)
+    serialized_audit = json.dumps(agent_sink.events[0].model_dump(mode="json"), sort_keys=True)
+    for sensitive in ("query", "record selector", "private model failure"):
+        assert sensitive not in serialized_public
+        assert sensitive not in serialized_audit
     assert_one_agent_audit(agent_sink)
 
 

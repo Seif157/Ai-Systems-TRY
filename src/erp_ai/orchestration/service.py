@@ -18,12 +18,14 @@ from erp_ai.orchestration.models import (
     ModelFinalAnswer,
     ModelToolCall,
     ModelToolDefinition,
+    ModelToolInteraction,
     ModelTurnRequest,
     PublicChatFailure,
     PublicChatResult,
     PublicChatSuccess,
     PublicCitation,
     ToolResultMessage,
+    _json_values_equivalent,
     to_mutable_json,
 )
 from erp_ai.orchestration.policy import AGENT_POLICY_INSTRUCTIONS
@@ -124,21 +126,21 @@ class AgentOrchestrator:
                 AgentErrorCode.AGENT_CATALOG_LIMIT,
                 "tool_catalog_limit_reached",
             )
-        tool_results: list[ToolResultMessage] = []
-        call_ids: set[str] = set()
-        invocation_keys: set[str] = set()
+        interactions: list[ModelToolInteraction] = []
         citations: dict[str, PublicCitation] = {}
         successful_calls: dict[str, _SuccessfulEvidenceCall] = {}
-        tool_calls = 0
-        accumulated_bytes = 0
 
         for turn_number in range(1, self.limits.maximum_model_turns + 1):
+            transcript = tuple(interactions)
+            transcript_failure = self._transcript_failure(transcript)
+            if transcript_failure is not None:
+                return await self._finish_failure(context, *transcript_failure)
             turn = ModelTurnRequest(
                 policy_instructions=AGENT_POLICY_INSTRUCTIONS,
                 user_message=request.message,
                 response_language=response_language,
                 tools=tools,
-                tool_results=tuple(tool_results),
+                interactions=transcript,
                 turn_number=turn_number,
             )
             try:
@@ -177,6 +179,26 @@ class AgentOrchestrator:
                     AgentErrorCode.INVALID_MODEL_RESPONSE,
                     "invalid_model_response",
                 )
+            try:
+                validated_call = ModelToolCall.from_arguments_json(
+                    call_id=model_response.call_id,
+                    tool_name=model_response.tool_name,
+                    version=model_response.version,
+                    arguments_json=model_response.arguments_json,
+                )
+                if not _json_values_equivalent(
+                    to_mutable_json(validated_call.arguments),
+                    to_mutable_json(model_response.arguments),
+                ):
+                    raise ValueError("raw and parsed arguments diverge")
+                model_response = validated_call
+            except Exception:
+                return await self._finish_failure(
+                    context,
+                    AgentErrorCode.INVALID_MODEL_RESPONSE,
+                    "invalid_model_tool_call",
+                )
+            call_ids = {item.assistant_call.call_id for item in transcript}
             if model_response.call_id in call_ids:
                 return await self._finish_failure(
                     context,
@@ -184,13 +206,14 @@ class AgentOrchestrator:
                     "duplicate_call_id",
                 )
             invocation_key = self._invocation_key(model_response)
+            invocation_keys = {self._invocation_key(item.assistant_call) for item in transcript}
             if invocation_key in invocation_keys:
                 return await self._finish_failure(
                     context,
                     AgentErrorCode.INVALID_MODEL_RESPONSE,
                     "repeated_tool_invocation",
                 )
-            if tool_calls >= self.limits.maximum_tool_calls:
+            if len(transcript) >= self.limits.maximum_tool_calls:
                 return await self._finish_failure(
                     context,
                     AgentErrorCode.AGENT_LIMIT_REACHED,
@@ -198,7 +221,7 @@ class AgentOrchestrator:
                 )
 
             mutable_arguments = to_mutable_json(model_response.arguments)
-            argument_bytes = _canonical_json_bytes(mutable_arguments)
+            argument_bytes = model_response.arguments_json.encode("utf-8")
             argument_depth, argument_nodes = _json_depth_and_nodes(mutable_arguments)
             if (
                 len(argument_bytes) > self.limits.maximum_tool_argument_bytes
@@ -211,9 +234,6 @@ class AgentOrchestrator:
                     "tool_argument_limit_reached",
                 )
 
-            call_ids.add(model_response.call_id)
-            invocation_keys.add(invocation_key)
-            tool_calls = len(call_ids)
             invocation = ToolInvocation(
                 tool_name=model_response.tool_name,
                 version=model_response.version,
@@ -235,13 +255,11 @@ class AgentOrchestrator:
                 tool_name=model_response.tool_name,
                 result=result,
             )
-            accumulated_bytes += len(_canonical_json_bytes(message.model_dump(mode="json")))
-            if accumulated_bytes > self.limits.maximum_tool_result_bytes:
-                return await self._finish_failure(
-                    context,
-                    AgentErrorCode.AGENT_LIMIT_REACHED,
-                    "tool_result_size_limit_reached",
-                )
+            interaction = ModelToolInteraction(assistant_call=model_response, tool_result=message)
+            candidate_transcript = (*transcript, interaction)
+            candidate_failure = self._transcript_failure(candidate_transcript)
+            if candidate_failure is not None:
+                return await self._finish_failure(context, *candidate_failure)
             if isinstance(result, PublicToolSuccess):
                 call_citations = self._observe_citations(result, citations)
                 if call_citations is None:
@@ -257,7 +275,7 @@ class AgentOrchestrator:
                     is_knowledge=model_response.tool_name == "search_hr_knowledge",
                     citation_ids=call_citations,
                 )
-            tool_results.append(message)
+            interactions.append(interaction)
 
         return await self._finish_failure(
             context,
@@ -294,6 +312,46 @@ class AgentOrchestrator:
                 "arguments": to_mutable_json(call.arguments),
             },
         ).decode("utf-8")
+
+    def _transcript_failure(
+        self, interactions: tuple[ModelToolInteraction, ...]
+    ) -> tuple[AgentErrorCode, str] | None:
+        """Revalidate all transcript objects and independently recompute every budget."""
+
+        if len(interactions) > self.limits.maximum_tool_calls:
+            return AgentErrorCode.AGENT_LIMIT_REACHED, "tool_call_limit_reached"
+        call_ids: set[str] = set()
+        result_bytes = 0
+        try:
+            for interaction in interactions:
+                validated = ModelToolInteraction.model_validate(
+                    {
+                        "assistant_call": interaction.assistant_call,
+                        "tool_result": interaction.tool_result,
+                    },
+                    strict=True,
+                )
+                call = validated.assistant_call
+                if call.call_id in call_ids:
+                    return AgentErrorCode.INVALID_MODEL_RESPONSE, "duplicate_call_id"
+                call_ids.add(call.call_id)
+                arguments = to_mutable_json(call.arguments)
+                argument_depth, argument_nodes = _json_depth_and_nodes(arguments)
+                if (
+                    len(call.arguments_json.encode("utf-8"))
+                    > self.limits.maximum_tool_argument_bytes
+                    or argument_depth > self.limits.maximum_argument_depth
+                    or argument_nodes > self.limits.maximum_argument_nodes
+                ):
+                    return AgentErrorCode.AGENT_LIMIT_REACHED, "tool_argument_limit_reached"
+                result_bytes += len(
+                    _canonical_json_bytes(validated.tool_result.model_dump(mode="json"))
+                )
+        except Exception:
+            return AgentErrorCode.INVALID_MODEL_RESPONSE, "invalid_interaction_transcript"
+        if result_bytes > self.limits.maximum_tool_result_bytes:
+            return AgentErrorCode.AGENT_LIMIT_REACHED, "tool_result_size_limit_reached"
+        return None
 
     @staticmethod
     def _observe_citations(

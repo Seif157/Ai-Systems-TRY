@@ -11,14 +11,17 @@ Every model turn keeps three roles structurally separate:
 
 - Immutable server-owned policy instructions.
 - The untrusted public user message.
-- Dedicated prior tool-result messages marked `untrusted_tool_result`.
+- Ordered prior assistant tool calls paired with dedicated results marked
+  `untrusted_tool_result`.
 
 Retrieved excerpts remain `untrusted_knowledge_excerpt`. Neither tool output nor retrieved content
 is concatenated into system policy. A future model adapter must map tool results to its dedicated
 tool-result role and preserve this separation.
 
 The model receives presentation language, authorized tool names/versions/public input schemas, and
-previous public tool results. It never receives trusted context, authorization collections,
+the immutable provider-neutral interaction transcript. Each interaction preserves the exact raw
+argument JSON and immutable parsed arguments alongside its matching public result so an adapter can
+reconstruct assistant-call and tool-result messages without replaying execution. It never receives trusted context, authorization collections,
 capability denials, governance metadata, handler/provider types, audit records, or internal output
 schemas. Preferred response language affects presentation only; authoritative locale, timezone,
 effective dates, legal scope, purpose, entitlements, and routing remain unchanged.
@@ -50,8 +53,11 @@ malformed responses, provider failures, and exceeded limits terminate safely.
 Additional immutable limits are 8,000 characters for the user message, 8,000 characters for the
 final answer, 16 KiB for serialized tool arguments, nesting depth 10, 512 JSON nodes, 32
 model-facing tools, and 128 KiB for the serialized catalog. Containers and scalar leaves count as
-nodes. Size calculations use deterministic sorted compact UTF-8 JSON. Argument limits are checked
-before gateway invocation; catalog limits are checked before model invocation. Violations are
+nodes. Live-provider argument JSON is preserved exactly; fake providers use deterministic sorted
+compact UTF-8 JSON. Duplicate keys, unsafe numbers, non-object JSON, raw/parsed divergence, and
+invalid constructed calls fail closed. Argument limits are checked
+before gateway invocation, and the complete transcript budgets are independently recomputed before
+every provider turn; catalog limits are checked before model invocation. Violations are
 never silently truncated and produce no tool audit when no invocation occurred, but they still
 produce exactly one agent-audit attempt.
 
@@ -83,3 +89,7 @@ Public failures use only `AGENT_UNAVAILABLE`, `AGENT_LIMIT_REACHED`, `AGENT_CATA
 `INVALID_MODEL_RESPONSE`, or `AUDIT_UNAVAILABLE` with generic messages. Public successes contain
 only answer, response language, and validated citations. Orchestration traces and raw tool
 envelopes are never public.
+
+The transcript excludes provider-specific reasoning or continuation state. Whether a future
+OpenRouter Ox Alpha adapter can continue tool use without `reasoning_details` remains a synthetic
+live compatibility question and is not answered by this contract.
