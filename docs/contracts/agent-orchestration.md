@@ -100,3 +100,7 @@ Step 21 makes an explicit trusted routing policy mandatory. `general_only` expos
 permits only one grounded final turn after successful execution. See
 [`forced-tool-routing.md`](forced-tool-routing.md). The route is not authorization and cannot be
 selected through `PublicChatRequest`.
+
+The Step 22 outer application boundary resolves and verifies the trusted intent before invoking
+this orchestrator. Failures before invocation have their own minimal application audit and produce
+no agent or tool audit.

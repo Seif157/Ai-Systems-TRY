@@ -100,10 +100,16 @@ named-tool selection and continuation after discarding provider reasoning state.
 wired into startup and is not approved for real ERP content, production privacy, or Arabic HR
 quality.
 
-Step 21 adds an uncommitted provider-neutral forced-tool routing contract. Server-owned
+Step 21 adds a provider-neutral forced-tool routing contract. Server-owned
 `general_only` runs expose no tools; `exact_read_then_final` runs expose one already-authorized
 read tool, require that call, and allow one grounded final turn after success. No public routing,
 keyword classifier, multi-tool route, production model composition, or new audit field is added.
+
+Step 22 adds an uncommitted provider-neutral application boundary: an opaque server reference is
+resolved into trusted context plus a short-lived bound intent, authorization freshness is verified,
+and an allowlisted deterministic route is passed to the orchestrator. Free-form text cannot select
+ERP tools. Production transport, identity integration, intent minting, audit delivery, and model
+approval remain future work.
 
 Step 17 is in progress on an uncommitted feature branch: deterministic, exact-arithmetic hybrid
 knowledge retrieval is evaluation-only and retains the semantic threshold status

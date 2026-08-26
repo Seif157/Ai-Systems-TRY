@@ -39,6 +39,13 @@ def test_accepts_and_normalizes_preferred_response_language() -> None:
         "purpose",
         "issued_at",
         "authorization_snapshot_id",
+        "trusted_request_reference",
+        "resolver_handle",
+        "context",
+        "route_intent",
+        "intent_code",
+        "route",
+        "tool_selection",
     ],
 )
 def test_rejects_trusted_fields(trusted_field: str) -> None:

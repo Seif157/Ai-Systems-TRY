@@ -5,6 +5,9 @@ Step 21 defines an immutable, server-owned `AgentRoutingPolicy`. It is supplied 
 The production ERP/UI integration must select it explicitly. Keyword routing, model-based intent
 classification, and public route selection are prohibited.
 
+Step 22 supplies this policy only after resolving a trusted server-minted intent, validating its
+context bindings and lifetime, and independently verifying authorization-snapshot freshness.
+
 ## Routes
 
 `general_only` exposes no model tools and accepts only a general answer with no evidence or

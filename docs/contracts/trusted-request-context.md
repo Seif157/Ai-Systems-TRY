@@ -1,5 +1,10 @@
 # Trusted request context contract
 
+Step 22 resolves this context only through a mandatory trusted request resolver and binds it
+exactly to a short-lived `TrustedRouteIntent`. A separate authorization-snapshot verifier must
+confirm freshness before route resolution. The resolver Protocol itself cannot prove trust; its
+production implementation must authenticate the ERP request and enforce tenant isolation.
+
 `TrustedRequestContext` is immutable, server-owned security context. A trusted application
 adapter implements `TrustedContextProvider`; `resolve_trusted_context` validates and freezes the
 claims returned by that provider. Unknown or missing fields fail validation.
