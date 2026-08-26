@@ -161,6 +161,37 @@ class AnswerBasis(str, Enum):
     MIXED = "mixed"
 
 
+class ToolSelectionMode(str, Enum):
+    NO_TOOLS = "no_tools"
+    REQUIRED_EXACT_TOOL = "required_exact_tool"
+    FINAL_ONLY = "final_only"
+
+
+class ModelToolSelection(BaseModel):
+    """Server-owned provider-neutral tool selection for one model turn."""
+
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        strict=True,
+        hide_input_in_errors=True,
+        revalidate_instances="always",
+    )
+
+    mode: ToolSelectionMode
+    tool_name: Code | None = Field(default=None, repr=False)
+    version: Version | None = Field(default=None, repr=False)
+
+    @model_validator(mode="after")
+    def validate_selection(self) -> "ModelToolSelection":
+        exact = self.mode is ToolSelectionMode.REQUIRED_EXACT_TOOL
+        has_both = self.tool_name is not None and self.version is not None
+        has_either = self.tool_name is not None or self.version is not None
+        if (exact and not has_both) or (not exact and has_either):
+            raise ValueError("tool selection is inconsistent")
+        return self
+
+
 class PublicCitation(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
@@ -234,12 +265,19 @@ class ToolResultMessage(BaseModel):
 
 
 class ModelTurnRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, strict=True, hide_input_in_errors=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        frozen=True,
+        strict=True,
+        hide_input_in_errors=True,
+        revalidate_instances="always",
+    )
 
     policy_instructions: tuple[str, ...]
     user_message: str
     response_language: LanguageCode
     tools: tuple[ModelToolDefinition, ...]
+    tool_selection: ModelToolSelection = Field(repr=False)
     interactions: tuple["ModelToolInteraction", ...] = Field(repr=False)
     turn_number: int = Field(strict=True, ge=1)
 
@@ -256,6 +294,24 @@ class ModelTurnRequest(BaseModel):
                 },
                 strict=True,
             )
+        selection = self.tool_selection
+        if selection.mode is ToolSelectionMode.NO_TOOLS:
+            if self.tools or self.interactions:
+                raise ValueError("no-tools turns cannot expose tools or interactions")
+        elif selection.mode is ToolSelectionMode.REQUIRED_EXACT_TOOL:
+            if self.interactions or len(self.tools) != 1:
+                raise ValueError("required-tool turns expose exactly one tool and no interaction")
+            exposed = self.tools[0]
+            if exposed.tool_name != selection.tool_name or exposed.version != selection.version:
+                raise ValueError("required tool does not match the exposed catalog")
+        else:
+            if self.tools or len(self.interactions) != 1:
+                raise ValueError(
+                    "final-only turns follow exactly one interaction and expose no tools"
+                )
+            result = self.interactions[0].tool_result.result
+            if not isinstance(result, PublicToolSuccess):
+                raise ValueError("final-only turns require one successful tool result")
         return self
 
 

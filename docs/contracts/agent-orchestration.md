@@ -94,3 +94,9 @@ The transcript excludes provider-specific reasoning or continuation state. The s
 North Mini Code adapter proved that a continuation can succeed after discarding provider state,
 but this does not add provider state to the contract or approve production model use. See
 [`openrouter-agent-model-provider.md`](openrouter-agent-model-provider.md).
+
+Step 21 makes an explicit trusted routing policy mandatory. `general_only` exposes no tools;
+`exact_read_then_final` exposes one authorized exact read tool, requires it on the first turn, and
+permits only one grounded final turn after successful execution. See
+[`forced-tool-routing.md`](forced-tool-routing.md). The route is not authorization and cannot be
+selected through `PublicChatRequest`.

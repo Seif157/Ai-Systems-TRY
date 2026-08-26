@@ -2,7 +2,7 @@ import asyncio
 import os
 
 import pytest
-from pydantic import SecretStr
+from pydantic import BaseModel, ConfigDict, SecretStr
 
 from erp_ai.infrastructure.openrouter import (
     OpenRouterAgentModelProvider,
@@ -13,12 +13,20 @@ from erp_ai.orchestration import (
     ModelToolCall,
     ModelToolDefinition,
     ModelToolInteraction,
+    ModelToolSelection,
     ModelTurnRequest,
     ToolResultMessage,
+    ToolSelectionMode,
 )
-from erp_ai.tools import PublicToolFailure, ToolErrorCode
+from erp_ai.tools import PublicToolSuccess
 
 pytestmark = pytest.mark.openrouter
+
+
+class SyntheticResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    value: str = "combined"
 
 
 def _live_enabled() -> bool:
@@ -54,11 +62,21 @@ def test_live_synthetic_forced_call_and_state_free_continuation() -> None:
     def request(
         number: int, interactions: tuple[ModelToolInteraction, ...] = ()
     ) -> ModelTurnRequest:
+        selection = (
+            ModelToolSelection(
+                mode=ToolSelectionMode.REQUIRED_EXACT_TOOL,
+                tool_name=tool_name,
+                version="1.0.0",
+            )
+            if number == 1
+            else ModelToolSelection(mode=ToolSelectionMode.FINAL_ONLY)
+        )
         return ModelTurnRequest(
             policy_instructions=instructions,
             user_message="Combine the fictional tokens alpha and beta.",
             response_language="en",
-            tools=(definition,),
+            tools=(definition,) if number == 1 else (),
+            tool_selection=selection,
             interactions=interactions,
             turn_number=number,
         )
@@ -67,23 +85,21 @@ def test_live_synthetic_forced_call_and_state_free_continuation() -> None:
         provider = OpenRouterAgentModelProvider(
             OpenRouterAgentModelProviderConfig(
                 api_key=SecretStr(key),
-                synthetic_forced_tool_name=tool_name,
             )
         )
         first = await provider.complete_turn(request(1))
         assert isinstance(first, ModelToolCall)
-        public_failure = PublicToolFailure(
+        public_result = PublicToolSuccess(
             tool_name=first.tool_name,
             version=first.version,
-            safe_error_code=ToolErrorCode.TOOL_UNAVAILABLE,
-            safe_message="Synthetic result supplied.",
+            result=SyntheticResult(),
         )
         interaction = ModelToolInteraction(
             assistant_call=first,
             tool_result=ToolResultMessage(
                 call_id=first.call_id,
                 tool_name=first.tool_name,
-                result=public_failure,
+                result=public_result,
             ),
         )
         second = await provider.complete_turn(request(2, (interaction,)))

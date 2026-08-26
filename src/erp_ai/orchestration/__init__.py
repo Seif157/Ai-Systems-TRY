@@ -9,13 +9,16 @@ from erp_ai.orchestration.models import (
     ModelToolCall,
     ModelToolDefinition,
     ModelToolInteraction,
+    ModelToolSelection,
     ModelTurnRequest,
     PublicChatFailure,
     PublicChatSuccess,
     PublicCitation,
     ToolResultMessage,
+    ToolSelectionMode,
 )
 from erp_ai.orchestration.provider import AgentModelProvider
+from erp_ai.orchestration.routing import AgentRouteMode, AgentRoutingPolicy
 from erp_ai.orchestration.service import AgentOrchestrator
 
 __all__ = [
@@ -25,14 +28,18 @@ __all__ = [
     "AgentLimits",
     "AgentModelProvider",
     "AgentOrchestrator",
+    "AgentRouteMode",
+    "AgentRoutingPolicy",
     "AnswerBasis",
     "ModelFinalAnswer",
     "ModelToolCall",
     "ModelToolDefinition",
     "ModelToolInteraction",
+    "ModelToolSelection",
     "ModelTurnRequest",
     "PublicChatFailure",
     "PublicChatSuccess",
     "PublicCitation",
     "ToolResultMessage",
+    "ToolSelectionMode",
 ]

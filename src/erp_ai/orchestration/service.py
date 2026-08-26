@@ -19,17 +19,20 @@ from erp_ai.orchestration.models import (
     ModelToolCall,
     ModelToolDefinition,
     ModelToolInteraction,
+    ModelToolSelection,
     ModelTurnRequest,
     PublicChatFailure,
     PublicChatResult,
     PublicChatSuccess,
     PublicCitation,
     ToolResultMessage,
+    ToolSelectionMode,
     _json_values_equivalent,
     to_mutable_json,
 )
 from erp_ai.orchestration.policy import AGENT_POLICY_INSTRUCTIONS
 from erp_ai.orchestration.provider import AgentModelProvider
+from erp_ai.orchestration.routing import AgentRouteMode, AgentRoutingPolicy
 from erp_ai.tools import PublicToolFailure, PublicToolSuccess, ReadToolGateway, ToolErrorCode
 from erp_ai.tools.models import ToolInvocation
 
@@ -104,9 +107,19 @@ class AgentOrchestrator:
         object.__setattr__(self, "limits", limits or AgentLimits())
 
     async def execute(
-        self, context: TrustedRequestContext, request: PublicChatRequest
+        self,
+        context: TrustedRequestContext,
+        request: PublicChatRequest,
+        routing: AgentRoutingPolicy,
     ) -> PublicChatResult:
-        """Execute one stateless agent loop and audit its single terminal outcome."""
+        """Execute one explicitly routed run and audit its single terminal outcome."""
+
+        try:
+            routing = AgentRoutingPolicy.model_validate(routing, strict=True)
+        except Exception:
+            return await self._finish_failure(
+                context, AgentErrorCode.INVALID_MODEL_RESPONSE, "invalid_route"
+            )
 
         if len(request.message) > self.limits.maximum_user_message_characters:
             return await self._finish_failure(
@@ -115,31 +128,64 @@ class AgentOrchestrator:
                 "user_message_limit_reached",
             )
         response_language = request.preferred_response_language or context.locale
-        tools = self._authorized_catalog(context)
-        catalog_payload = [tool.model_dump(mode="json") for tool in tools]
+        authorized_tools = self._authorized_catalog(context)
+        authorized_catalog_payload = [tool.model_dump(mode="json") for tool in authorized_tools]
         if (
-            len(tools) > self.limits.maximum_model_tools
-            or len(_canonical_json_bytes(catalog_payload)) > self.limits.maximum_tool_catalog_bytes
+            len(authorized_tools) > self.limits.maximum_model_tools
+            or len(_canonical_json_bytes(authorized_catalog_payload))
+            > self.limits.maximum_tool_catalog_bytes
         ):
             return await self._finish_failure(
                 context,
                 AgentErrorCode.AGENT_CATALOG_LIMIT,
                 "tool_catalog_limit_reached",
             )
+        if routing.mode is AgentRouteMode.GENERAL_ONLY:
+            tools: tuple[ModelToolDefinition, ...] = ()
+        else:
+            tools = tuple(
+                tool
+                for tool in authorized_tools
+                if tool.tool_name == routing.tool_name and tool.version == routing.version
+            )
+            if len(tools) != 1:
+                return await self._finish_failure(
+                    context, AgentErrorCode.INVALID_MODEL_RESPONSE, "route_not_authorized"
+                )
+            if self.limits.maximum_tool_calls < 1 or self.limits.maximum_model_turns < 2:
+                return await self._finish_failure(
+                    context, AgentErrorCode.AGENT_LIMIT_REACHED, "route_resource_limit_reached"
+                )
         interactions: list[ModelToolInteraction] = []
         citations: dict[str, PublicCitation] = {}
         successful_calls: dict[str, _SuccessfulEvidenceCall] = {}
 
-        for turn_number in range(1, self.limits.maximum_model_turns + 1):
+        maximum_turns = 1 if routing.mode is AgentRouteMode.GENERAL_ONLY else 2
+        for turn_number in range(1, maximum_turns + 1):
             transcript = tuple(interactions)
             transcript_failure = self._transcript_failure(transcript)
             if transcript_failure is not None:
                 return await self._finish_failure(context, *transcript_failure)
+            turn_tools: tuple[ModelToolDefinition, ...]
+            if routing.mode is AgentRouteMode.GENERAL_ONLY:
+                selection = ModelToolSelection(mode=ToolSelectionMode.NO_TOOLS)
+                turn_tools = ()
+            elif turn_number == 1:
+                selection = ModelToolSelection(
+                    mode=ToolSelectionMode.REQUIRED_EXACT_TOOL,
+                    tool_name=routing.tool_name,
+                    version=routing.version,
+                )
+                turn_tools = tools
+            else:
+                selection = ModelToolSelection(mode=ToolSelectionMode.FINAL_ONLY)
+                turn_tools = ()
             turn = ModelTurnRequest(
                 policy_instructions=AGENT_POLICY_INSTRUCTIONS,
                 user_message=request.message,
                 response_language=response_language,
-                tools=tools,
+                tools=turn_tools,
+                tool_selection=selection,
                 interactions=transcript,
                 turn_number=turn_number,
             )
@@ -151,6 +197,12 @@ class AgentOrchestrator:
                 )
 
             if isinstance(model_response, ModelFinalAnswer):
+                if routing.mode is AgentRouteMode.EXACT_READ_THEN_FINAL and turn_number == 1:
+                    return await self._finish_failure(
+                        context,
+                        AgentErrorCode.INVALID_MODEL_RESPONSE,
+                        "required_tool_call_missing",
+                    )
                 if len(model_response.answer) > self.limits.maximum_final_answer_characters:
                     return await self._finish_failure(
                         context,
@@ -160,6 +212,16 @@ class AgentOrchestrator:
                 public_citations = self._validate_grounding(
                     model_response, successful_calls, citations
                 )
+                if routing.mode is AgentRouteMode.GENERAL_ONLY and (
+                    model_response.answer_basis is not AnswerBasis.GENERAL
+                    or model_response.evidence_call_ids
+                    or model_response.citation_ids
+                ):
+                    public_citations = None
+                if routing.mode is AgentRouteMode.EXACT_READ_THEN_FINAL and not (
+                    self._matches_exact_route_grounding(model_response, successful_calls)
+                ):
+                    public_citations = None
                 if public_citations is None:
                     return await self._finish_failure(
                         context,
@@ -178,6 +240,12 @@ class AgentOrchestrator:
                     context,
                     AgentErrorCode.INVALID_MODEL_RESPONSE,
                     "invalid_model_response",
+                )
+            if routing.mode is AgentRouteMode.GENERAL_ONLY or turn_number != 1:
+                return await self._finish_failure(
+                    context,
+                    AgentErrorCode.INVALID_MODEL_RESPONSE,
+                    "tool_call_not_allowed",
                 )
             try:
                 validated_call = ModelToolCall.from_arguments_json(
@@ -198,28 +266,15 @@ class AgentOrchestrator:
                     AgentErrorCode.INVALID_MODEL_RESPONSE,
                     "invalid_model_tool_call",
                 )
-            call_ids = {item.assistant_call.call_id for item in transcript}
-            if model_response.call_id in call_ids:
+            if (
+                model_response.tool_name != routing.tool_name
+                or model_response.version != routing.version
+            ):
                 return await self._finish_failure(
                     context,
                     AgentErrorCode.INVALID_MODEL_RESPONSE,
-                    "duplicate_call_id",
+                    "routed_tool_mismatch",
                 )
-            invocation_key = self._invocation_key(model_response)
-            invocation_keys = {self._invocation_key(item.assistant_call) for item in transcript}
-            if invocation_key in invocation_keys:
-                return await self._finish_failure(
-                    context,
-                    AgentErrorCode.INVALID_MODEL_RESPONSE,
-                    "repeated_tool_invocation",
-                )
-            if len(transcript) >= self.limits.maximum_tool_calls:
-                return await self._finish_failure(
-                    context,
-                    AgentErrorCode.AGENT_LIMIT_REACHED,
-                    "tool_call_limit_reached",
-                )
-
             mutable_arguments = to_mutable_json(model_response.arguments)
             argument_bytes = model_response.arguments_json.encode("utf-8")
             argument_depth, argument_nodes = _json_depth_and_nodes(mutable_arguments)
@@ -249,6 +304,12 @@ class AgentOrchestrator:
                     AgentErrorCode.AUDIT_UNAVAILABLE,
                     "tool_audit_unavailable",
                 )
+            if isinstance(result, PublicToolFailure):
+                return await self._finish_failure(
+                    context,
+                    AgentErrorCode.AGENT_UNAVAILABLE,
+                    "routed_tool_failed",
+                )
 
             message = ToolResultMessage(
                 call_id=model_response.call_id,
@@ -260,27 +321,24 @@ class AgentOrchestrator:
             candidate_failure = self._transcript_failure(candidate_transcript)
             if candidate_failure is not None:
                 return await self._finish_failure(context, *candidate_failure)
-            if isinstance(result, PublicToolSuccess):
-                call_citations = self._observe_citations(result, citations)
-                if call_citations is None:
-                    return await self._finish_failure(
-                        context,
-                        AgentErrorCode.INVALID_MODEL_RESPONSE,
-                        "citation_metadata_conflict",
-                    )
-                successful_calls[model_response.call_id] = _SuccessfulEvidenceCall(
-                    call_id=model_response.call_id,
-                    tool_name=model_response.tool_name,
-                    version=model_response.version,
-                    is_knowledge=model_response.tool_name == "search_hr_knowledge",
-                    citation_ids=call_citations,
+            call_citations = self._observe_citations(result, citations)
+            if call_citations is None:
+                return await self._finish_failure(
+                    context,
+                    AgentErrorCode.INVALID_MODEL_RESPONSE,
+                    "citation_metadata_conflict",
                 )
+            successful_calls[model_response.call_id] = _SuccessfulEvidenceCall(
+                call_id=model_response.call_id,
+                tool_name=model_response.tool_name,
+                version=model_response.version,
+                is_knowledge=model_response.tool_name == "search_hr_knowledge",
+                citation_ids=call_citations,
+            )
             interactions.append(interaction)
 
-        return await self._finish_failure(
-            context,
-            AgentErrorCode.AGENT_LIMIT_REACHED,
-            "model_turn_limit_reached",
+        return await self._finish_failure(  # pragma: no cover - both bounded turns terminate above
+            context, AgentErrorCode.INVALID_MODEL_RESPONSE, "route_not_completed"
         )
 
     def _authorized_catalog(
@@ -302,16 +360,6 @@ class AgentOrchestrator:
                     )
                 )
         return tuple(sorted(definitions, key=lambda item: item.tool_name))
-
-    @staticmethod
-    def _invocation_key(call: ModelToolCall) -> str:
-        return _canonical_json_bytes(
-            {
-                "tool_name": call.tool_name,
-                "version": call.version,
-                "arguments": to_mutable_json(call.arguments),
-            },
-        ).decode("utf-8")
 
     def _transcript_failure(
         self, interactions: tuple[ModelToolInteraction, ...]
@@ -352,6 +400,19 @@ class AgentOrchestrator:
         if result_bytes > self.limits.maximum_tool_result_bytes:
             return AgentErrorCode.AGENT_LIMIT_REACHED, "tool_result_size_limit_reached"
         return None
+
+    @staticmethod
+    def _matches_exact_route_grounding(
+        answer: ModelFinalAnswer,
+        successful_calls: dict[str, _SuccessfulEvidenceCall],
+    ) -> bool:
+        if len(successful_calls) != 1:
+            return False
+        selected = next(iter(successful_calls.values()))
+        if answer.evidence_call_ids != (selected.call_id,):
+            return False
+        expected_basis = AnswerBasis.KNOWLEDGE if selected.is_knowledge else AnswerBasis.ERP_DATA
+        return answer.answer_basis is expected_basis
 
     @staticmethod
     def _observe_citations(
@@ -411,7 +472,7 @@ class AgentOrchestrator:
         elif answer.answer_basis is AnswerBasis.ERP_DATA:
             if not erp_calls or knowledge_calls or answer.citation_ids:
                 return None
-        elif not knowledge_calls or not erp_calls or not answer.citation_ids:
+        else:
             return None
 
         if any(citation_id not in selected_citation_ids for citation_id in answer.citation_ids):

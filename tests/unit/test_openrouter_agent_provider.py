@@ -6,7 +6,7 @@ from types import MappingProxyType
 
 import httpx
 import pytest
-from pydantic import SecretStr, ValidationError
+from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
 
 from erp_ai.api import PublicChatRequest
 from erp_ai.infrastructure.openrouter import (
@@ -22,10 +22,12 @@ from erp_ai.orchestration import (
     ModelToolCall,
     ModelToolDefinition,
     ModelToolInteraction,
+    ModelToolSelection,
     ModelTurnRequest,
     ToolResultMessage,
+    ToolSelectionMode,
 )
-from erp_ai.tools import PublicToolFailure, ToolAuditEvent, ToolErrorCode
+from erp_ai.tools import PublicToolSuccess, ToolAuditEvent
 
 ASYNC_CLIENT = httpx.AsyncClient
 MODEL = "cohere/north-mini-code:free"
@@ -33,10 +35,15 @@ TOOL_NAME = "combine_synthetic_tokens"
 PRIVATE_MARKER = "private-synthetic-marker"
 
 
+class SyntheticResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    value: str = "combined"
+
+
 def config(**overrides: object) -> OpenRouterAgentModelProviderConfig:
     values: dict[str, object] = {
         "api_key": SecretStr("synthetic-secret"),
-        "synthetic_forced_tool_name": TOOL_NAME,
     }
     values.update(overrides)
     return OpenRouterAgentModelProviderConfig.model_validate(values)
@@ -61,6 +68,19 @@ def tool() -> ModelToolDefinition:
 def turn(
     *, number: int = 1, interactions: tuple[ModelToolInteraction, ...] = ()
 ) -> ModelTurnRequest:
+    if number == 1:
+        selection = ModelToolSelection(
+            mode=ToolSelectionMode.REQUIRED_EXACT_TOOL,
+            tool_name=TOOL_NAME,
+            version="1.0.0",
+        )
+        tools = (tool(),)
+    elif interactions:
+        selection = ModelToolSelection(mode=ToolSelectionMode.FINAL_ONLY)
+        tools = ()
+    else:
+        selection = ModelToolSelection(mode=ToolSelectionMode.NO_TOOLS)
+        tools = ()
     return ModelTurnRequest(
         policy_instructions=(
             "Synthetic protocol test only.",
@@ -68,7 +88,8 @@ def turn(
         ),
         user_message="Combine two fictional tokens.",
         response_language="en",
-        tools=(tool(),),
+        tools=tools,
+        tool_selection=selection,
         interactions=interactions,
         turn_number=number,
     )
@@ -150,18 +171,17 @@ def install_transport(
 
 
 def interaction(call: ModelToolCall) -> ModelToolInteraction:
-    failure = PublicToolFailure(
+    result = PublicToolSuccess(
         tool_name=call.tool_name,
         version=call.version,
-        safe_error_code=ToolErrorCode.TOOL_UNAVAILABLE,
-        safe_message="Synthetic tool unavailable.",
+        result=SyntheticResult(),
     )
     return ModelToolInteraction(
         assistant_call=call,
         tool_result=ToolResultMessage(
             call_id=call.call_id,
             tool_name=call.tool_name,
-            result=failure,
+            result=result,
         ),
     )
 
@@ -182,7 +202,9 @@ def test_configuration_is_strict_frozen_secret_safe_and_synthetic_only(
     with pytest.raises(ValidationError):
         config(endpoint="https://example.invalid")
     with pytest.raises(ValidationError):
-        config(synthetic_forced_tool_name="Bad.Name")
+        OpenRouterAgentModelProviderConfig.model_validate(
+            {"api_key": SecretStr("synthetic-secret"), "synthetic_forced_tool_name": "bad"}
+        )
     with pytest.raises(ValidationError):
         config(unknown=True)
     with pytest.raises(ValidationError):
@@ -248,7 +270,7 @@ def test_forced_call_and_exact_transcript_replay_discard_provider_state(
         "require_parameters": True,
         "allow_fallbacks": False,
     }
-    assert "tool_choice" not in second_payload
+    assert second_payload["tool_choice"] == "none"
     replay = second_payload["messages"]  # type: ignore[assignment]
     assert [item["role"] for item in replay] == ["system", "user", "assistant", "tool"]  # type: ignore[index]
     assert replay[2]["tool_calls"][0]["id"] == "call_synthetic_1"  # type: ignore[index]
@@ -441,6 +463,21 @@ def test_request_limit_invalid_configuration_and_missing_forced_tool_fail_before
     assert called is False
 
 
+def test_constructed_invalid_turn_fails_before_http(monkeypatch: pytest.MonkeyPatch) -> None:
+    called = False
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal called
+        called = True
+        return response(tool_call_response())
+
+    install_transport(monkeypatch, handler)
+    invalid = turn().model_copy(update={"tools": ()})
+    with pytest.raises(OpenRouterProviderUnavailable):
+        asyncio.run(OpenRouterAgentModelProvider(config()).complete_turn(invalid))
+    assert called is False
+
+
 def test_timeout_transport_error_and_cancellation_are_safe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -535,11 +572,9 @@ def test_final_answer_size_and_valid_final_answer(
 ) -> None:
     replies = [response(final_response()), response(final_response())]
     install_transport(monkeypatch, lambda _: replies.pop(0))
-    valid = OpenRouterAgentModelProvider(config(synthetic_forced_tool_name=None))
+    valid = OpenRouterAgentModelProvider(config())
     assert isinstance(asyncio.run(valid.complete_turn(turn(number=2))), ModelFinalAnswer)
-    limited = OpenRouterAgentModelProvider(
-        config(synthetic_forced_tool_name=None, maximum_final_answer_bytes=1)
-    )
+    limited = OpenRouterAgentModelProvider(config(maximum_final_answer_bytes=1))
     with pytest.raises(OpenRouterProviderUnavailable):
         asyncio.run(limited.complete_turn(turn(number=2)))
 
@@ -602,11 +637,7 @@ def test_additional_response_shapes_fail_closed(
         provider_response = response(payload)
     install_transport(monkeypatch, lambda _: provider_response)
     with pytest.raises(OpenRouterProviderUnavailable):
-        asyncio.run(
-            OpenRouterAgentModelProvider(config(synthetic_forced_tool_name=None)).complete_turn(
-                turn(number=2)
-            )
-        )
+        asyncio.run(OpenRouterAgentModelProvider(config()).complete_turn(turn(number=2)))
 
 
 def test_tool_call_cannot_include_ambiguous_text_content(
@@ -617,6 +648,19 @@ def test_tool_call_cannot_include_ambiguous_text_content(
     install_transport(monkeypatch, lambda _: response(payload))
     with pytest.raises(OpenRouterProviderUnavailable):
         asyncio.run(OpenRouterAgentModelProvider(config()).complete_turn(turn()))
+
+
+def test_final_only_rejects_additional_tool_call(monkeypatch: pytest.MonkeyPatch) -> None:
+    first = ModelToolCall.from_arguments(
+        call_id="prior", tool_name=TOOL_NAME, version="1.0.0", arguments={}
+    )
+    install_transport(monkeypatch, lambda _: response(tool_call_response()))
+    with pytest.raises(OpenRouterProviderUnavailable):
+        asyncio.run(
+            OpenRouterAgentModelProvider(config()).complete_turn(
+                turn(number=2, interactions=(interaction(first),))
+            )
+        )
 
 
 def test_excessive_provider_nesting_fails_closed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -630,11 +674,7 @@ def test_excessive_provider_nesting_fails_closed(monkeypatch: pytest.MonkeyPatch
         ),
     )
     with pytest.raises(OpenRouterProviderUnavailable):
-        asyncio.run(
-            OpenRouterAgentModelProvider(config(synthetic_forced_tool_name=None)).complete_turn(
-                turn(number=2)
-            )
-        )
+        asyncio.run(OpenRouterAgentModelProvider(config()).complete_turn(turn(number=2)))
 
 
 def test_provider_state_is_absent_from_neutral_public_and_audit_contracts() -> None:

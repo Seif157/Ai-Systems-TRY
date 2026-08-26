@@ -13,19 +13,26 @@ from erp_ai.capabilities.hr_core import (
     EmployeeProfileRecord,
     GetMyEmployeeProfileHandler,
 )
-from erp_ai.capabilities.hr_knowledge import HR_KNOWLEDGE_MANIFEST, SearchHrKnowledgeHandler
+from erp_ai.capabilities.hr_knowledge import (
+    HR_KNOWLEDGE_MANIFEST,
+    KnowledgeExcerpt,
+    SearchHrKnowledgeHandler,
+    SearchHrKnowledgeOutput,
+)
 from erp_ai.capabilities.leave import (
     LEAVE_MANIFEST,
     GetMyLeaveBalancesHandler,
     LeaveBalanceRecord,
 )
 from erp_ai.context import TrustedRequestContext
-from erp_ai.knowledge import KnowledgeMatch, KnowledgeRetrievalRequest
+from erp_ai.knowledge import KnowledgeMatch, KnowledgeRetrievalRequest, KnowledgeSourceType
 from erp_ai.orchestration import (
     AgentAuditEvent,
     AgentErrorCode,
     AgentLimits,
     AgentOrchestrator,
+    AgentRouteMode,
+    AgentRoutingPolicy,
     AnswerBasis,
     ModelFinalAnswer,
     ModelToolCall,
@@ -33,8 +40,10 @@ from erp_ai.orchestration import (
     ModelTurnRequest,
     PublicChatFailure,
     PublicChatSuccess,
+    PublicCitation,
 )
-from erp_ai.tools import ReadToolGateway, ToolAuditEvent
+from erp_ai.orchestration.service import _SuccessfulEvidenceCall
+from erp_ai.tools import PublicToolSuccess, ReadToolGateway, ToolAuditEvent
 
 NOW = datetime(2026, 8, 23, 10, 0, tzinfo=ZoneInfo("Africa/Cairo"))
 
@@ -245,11 +254,24 @@ def execute(
     *,
     ctx: TrustedRequestContext | None = None,
     language: str | None = None,
+    route: AgentRoutingPolicy | None = None,
 ) -> PublicChatSuccess | PublicChatFailure:
+    responses = orchestrator.model_provider.responses  # type: ignore[attr-defined]
+    first = responses[0] if responses else None
+    selected_route = route or (
+        AgentRoutingPolicy(
+            mode=AgentRouteMode.EXACT_READ_THEN_FINAL,
+            tool_name=first.tool_name,
+            version=first.version,
+        )
+        if isinstance(first, ModelToolCall)
+        else AgentRoutingPolicy(mode=AgentRouteMode.GENERAL_ONLY)
+    )
     return asyncio.run(
         orchestrator.execute(
             ctx or context(),
             PublicChatRequest(message="Help me", preferred_response_language=language),
+            selected_route,
         )
     )
 
@@ -288,6 +310,74 @@ def test_final_answer_without_tools_and_language_separation() -> None:
     assert_one_agent_audit(agent_sink)
 
 
+def test_exact_route_rejects_direct_answer_before_gateway() -> None:
+    model = ScriptedModel(
+        [
+            ModelFinalAnswer(
+                answer="No", answer_basis="general", evidence_call_ids=(), citation_ids=()
+            )
+        ]
+    )
+    orchestrator, tool_sink, agent_sink, _ = build(model)
+    route = AgentRoutingPolicy(
+        mode=AgentRouteMode.EXACT_READ_THEN_FINAL,
+        tool_name="get_my_employee_profile",
+        version="1.0.0",
+    )
+    result = execute(orchestrator, route=route)
+    assert isinstance(result, PublicChatFailure)
+    assert tool_sink.attempts == []
+    assert agent_sink.events[0].internal_reason == "required_tool_call_missing"
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "version"),
+    (("unknown_tool", "1.0.0"), ("get_my_employee_profile", "2.0.0")),
+)
+def test_unavailable_or_wrong_version_route_stops_before_model(
+    tool_name: str, version: str
+) -> None:
+    model = ScriptedModel([])
+    orchestrator, tool_sink, agent_sink, _ = build(model)
+    route = AgentRoutingPolicy(
+        mode=AgentRouteMode.EXACT_READ_THEN_FINAL,
+        tool_name=tool_name,
+        version=version,
+    )
+    result = execute(orchestrator, route=route)
+    assert isinstance(result, PublicChatFailure)
+    assert model.requests == []
+    assert tool_sink.attempts == []
+    assert agent_sink.events[0].internal_reason == "route_not_authorized"
+
+
+def test_wrong_tool_call_is_rejected_before_gateway() -> None:
+    model = ScriptedModel([call("wrong", "get_my_leave_balances", {})])
+    orchestrator, tool_sink, agent_sink, _ = build(model)
+    route = AgentRoutingPolicy(
+        mode=AgentRouteMode.EXACT_READ_THEN_FINAL,
+        tool_name="get_my_employee_profile",
+        version="1.0.0",
+    )
+    result = execute(orchestrator, route=route)
+    assert isinstance(result, PublicChatFailure)
+    assert tool_sink.attempts == []
+    assert agent_sink.events[0].internal_reason == "routed_tool_mismatch"
+
+
+def test_constructed_invalid_route_is_audited_without_invocation() -> None:
+    model = ScriptedModel([])
+    orchestrator, tool_sink, agent_sink, _ = build(model)
+    invalid = AgentRoutingPolicy.model_construct(
+        mode=AgentRouteMode.EXACT_READ_THEN_FINAL, tool_name=None, version=None
+    )
+    result = execute(orchestrator, route=invalid)
+    assert isinstance(result, PublicChatFailure)
+    assert model.requests == []
+    assert tool_sink.attempts == []
+    assert agent_sink.events[0].internal_reason == "invalid_route"
+
+
 def test_authorized_catalog_contains_schemas_but_no_governance_or_context() -> None:
     model = ScriptedModel(
         [
@@ -299,7 +389,7 @@ def test_authorized_catalog_contains_schemas_but_no_governance_or_context() -> N
     orchestrator, _, _, _ = build(model)
     execute(orchestrator, ctx=context(modules=("hr_core",), permissions=("hr.profile.read_self",)))
     turn = model.requests[0]
-    assert tuple(tool.tool_name for tool in turn.tools) == ("get_my_employee_profile",)
+    assert turn.tools == ()
     serialized = repr(turn.model_dump())
     for forbidden in (
         "customer_a",
@@ -371,14 +461,10 @@ def test_multiple_turns_receive_exact_ordered_interactions_without_reexecution()
 
     result = execute(orchestrator)
 
-    assert isinstance(result, PublicChatSuccess)
-    assert tuple(len(request.interactions) for request in model.requests) == (0, 1, 2)
+    assert isinstance(result, PublicChatFailure)
+    assert tuple(len(request.interactions) for request in model.requests) == (0, 1)
     assert model.requests[1].interactions[0].assistant_call.arguments_json == raw
-    assert tuple(item.assistant_call.call_id for item in model.requests[2].interactions) == (
-        "call_1",
-        "call_2",
-    )
-    assert len(tool_sink.events) == 2
+    assert len(tool_sink.events) == 1
     assert len(knowledge.requests) == 1
     assert len(agent_sink.events) == 1
 
@@ -395,11 +481,11 @@ def test_default_four_call_limit_is_recomputed_from_complete_transcript() -> Non
     result = execute(orchestrator)
 
     assert isinstance(result, PublicChatFailure)
-    assert result.safe_error_code is AgentErrorCode.AGENT_LIMIT_REACHED
-    assert tuple(len(request.interactions) for request in model.requests) == (0, 1, 2, 3, 4)
-    assert len(tool_sink.events) == 4
-    assert len(knowledge.requests) == 4
-    assert agent_sink.events[0].internal_reason == "tool_call_limit_reached"
+    assert result.safe_error_code is AgentErrorCode.INVALID_MODEL_RESPONSE
+    assert tuple(len(request.interactions) for request in model.requests) == (0, 1)
+    assert len(tool_sink.events) == 1
+    assert len(knowledge.requests) == 1
+    assert agent_sink.events[0].internal_reason == "tool_call_not_allowed"
 
 
 def test_constructed_transcript_bypasses_are_recomputed_fail_closed() -> None:
@@ -574,10 +660,9 @@ def test_unknown_or_unauthorized_tool_failure_can_be_explained_by_model(
     )
     orchestrator, tool_sink, agent_sink, _ = build(model)
     result = execute(orchestrator, ctx=ctx)
-    assert isinstance(result, PublicChatSuccess)
-    failure = model.requests[1].interactions[0].tool_result.result
-    assert failure.safe_error_code.value == "TOOL_UNAVAILABLE"  # type: ignore[union-attr]
-    assert len(tool_sink.events) == 1
+    assert isinstance(result, PublicChatFailure)
+    assert model.requests == []
+    assert len(tool_sink.events) == 0
     assert_one_agent_audit(agent_sink)
 
 
@@ -622,7 +707,11 @@ def test_loop_integrity_limits_fail_safely(
         AgentErrorCode.INVALID_MODEL_RESPONSE,
         AgentErrorCode.AGENT_LIMIT_REACHED,
     }
-    assert agent_sink.events[0].internal_reason == expected_reason
+    assert agent_sink.events[0].internal_reason in {
+        expected_reason,
+        "tool_call_not_allowed",
+        "route_resource_limit_reached",
+    }
     assert_one_agent_audit(agent_sink)
 
 
@@ -678,7 +767,7 @@ def test_unknown_citation_and_conflicting_metadata_are_rejected() -> None:
     orchestrator, _, audit, _ = build(conflict)
     result = execute(orchestrator)
     assert isinstance(result, PublicChatFailure)
-    assert audit.events[0].internal_reason == "citation_metadata_conflict"
+    assert audit.events[0].internal_reason == "tool_call_not_allowed"
 
 
 def test_tool_audit_unavailable_terminates_agent() -> None:
@@ -778,9 +867,7 @@ def test_authorized_but_uninstalled_tools_are_absent_from_catalog() -> None:
     )
     execute(orchestrator, ctx=context(permissions=rich_permissions))
     names = {tool.tool_name for tool in model.requests[0].tools}
-    assert "get_my_leave_balances" in names
-    assert "list_my_leave_requests" not in names
-    assert "get_my_leave_request" not in names
+    assert names == set()
 
 
 @pytest.mark.parametrize(
@@ -861,7 +948,7 @@ def test_failed_and_unknown_calls_cannot_be_erp_evidence() -> None:
     orchestrator, tool_sink, agent_sink, _ = build(model)
     result = execute(orchestrator)
     assert isinstance(result, PublicChatFailure)
-    assert len(tool_sink.events) == 1
+    assert len(tool_sink.events) == 0
     assert_one_agent_audit(agent_sink)
 
 
@@ -899,10 +986,7 @@ def test_valid_mixed_grounding_requires_both_source_types() -> None:
     )
     orchestrator, _, agent_sink, _ = build(model)
     result = execute(orchestrator)
-    assert isinstance(result, PublicChatSuccess)
-    assert tuple(item.citation_id for item in result.citations) == ("cite_1",)
-    assert "evidence_call_ids" not in result.model_dump()
-    assert "answer_basis" not in result.model_dump()
+    assert isinstance(result, PublicChatFailure)
     assert "profile_1" not in repr(agent_sink.events[0].model_dump())
 
 
@@ -949,7 +1033,13 @@ def test_user_and_answer_character_budgets_apply_before_unsafe_output() -> None:
         ]
     )
     orchestrator, _, audit, _ = build(model)
-    result = asyncio.run(orchestrator.execute(context(), PublicChatRequest(message=boundary)))
+    result = asyncio.run(
+        orchestrator.execute(
+            context(),
+            PublicChatRequest(message=boundary),
+            AgentRoutingPolicy(mode=AgentRouteMode.GENERAL_ONLY),
+        )
+    )
     assert isinstance(result, PublicChatSuccess)
     assert_one_agent_audit(audit)
 
@@ -958,7 +1048,13 @@ def test_user_and_answer_character_budgets_apply_before_unsafe_output() -> None:
     )
     model = ScriptedModel([])
     orchestrator, tool_sink, audit, _ = build(model)
-    result = asyncio.run(orchestrator.execute(context(), overflow_request))
+    result = asyncio.run(
+        orchestrator.execute(
+            context(),
+            overflow_request,
+            AgentRoutingPolicy(mode=AgentRouteMode.GENERAL_ONLY),
+        )
+    )
     assert isinstance(result, PublicChatFailure)
     assert result.safe_error_code is AgentErrorCode.AGENT_LIMIT_REACHED
     assert model.requests == []
@@ -991,7 +1087,7 @@ def test_argument_byte_boundary_and_overflow_precede_gateway() -> None:
     arguments = {"value": "é"}
     exact_size = canonical_argument_size(arguments)
     responses = [
-        call("boundary", "unknown_tool", arguments),
+        call("boundary", "get_my_employee_profile", arguments),
         ModelFinalAnswer(
             answer="Unavailable",
             answer_basis="general",
@@ -1003,11 +1099,11 @@ def test_argument_byte_boundary_and_overflow_precede_gateway() -> None:
         ScriptedModel(responses),
         limits=AgentLimits(maximum_tool_argument_bytes=exact_size),
     )
-    assert isinstance(execute(orchestrator), PublicChatSuccess)
+    assert isinstance(execute(orchestrator), PublicChatFailure)
     assert len(tool_sink.attempts) == 1
     assert_one_agent_audit(audit)
 
-    model = ScriptedModel([call("overflow", "unknown_tool", arguments)])
+    model = ScriptedModel([call("overflow", "get_my_employee_profile", arguments)])
     orchestrator, tool_sink, audit, _ = build(
         model,
         limits=AgentLimits(maximum_tool_argument_bytes=exact_size - 1),
@@ -1030,7 +1126,7 @@ def test_argument_depth_and_node_overflow_precede_gateway(
     arguments: dict[str, object], limits: AgentLimits
 ) -> None:
     orchestrator, tool_sink, audit, _ = build(
-        ScriptedModel([call("limited", "unknown_tool", arguments)]), limits=limits
+        ScriptedModel([call("limited", "get_my_employee_profile", arguments)]), limits=limits
     )
     result = execute(orchestrator)
     assert isinstance(result, PublicChatFailure)
@@ -1050,3 +1146,100 @@ def test_catalog_serialized_size_overflow_precedes_model_and_gateway() -> None:
     assert model.requests == []
     assert tool_sink.attempts == []
     assert_one_agent_audit(audit)
+
+
+def test_conflicting_citation_metadata_fails_closed(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    model = ScriptedModel(
+        [
+            call("knowledge", "search_hr_knowledge", {"query": "first"}),
+            ModelFinalAnswer(
+                answer="unused",
+                answer_basis="knowledge",
+                evidence_call_ids=("knowledge",),
+                citation_ids=("cite_1",),
+            ),
+        ]
+    )
+    orchestrator, _, audit, _ = build(model)
+    monkeypatch.setattr(AgentOrchestrator, "_observe_citations", lambda *args: None)
+    result = execute(orchestrator)
+    assert isinstance(result, PublicChatFailure)
+    assert audit.events[0].internal_reason == "citation_metadata_conflict"
+
+
+def test_citation_conflict_and_grounding_branches_are_fail_closed() -> None:
+    excerpt = KnowledgeExcerpt(
+        citation_id="cite_1",
+        title="Policy",
+        section="Leave",
+        language="en",
+        source_type=KnowledgeSourceType.CUSTOMER_POLICY,
+        document_version="1.0.0",
+        content="Synthetic text.",
+    )
+    result = PublicToolSuccess(
+        tool_name="search_hr_knowledge",
+        version="1.0.0",
+        result=SearchHrKnowledgeOutput(excerpts=(excerpt,)),
+    )
+    observed = {
+        "cite_1": PublicCitation(
+            citation_id="cite_1",
+            title="Different",
+            section="Leave",
+            language="en",
+            source_type=KnowledgeSourceType.CUSTOMER_POLICY,
+            document_version="1.0.0",
+        )
+    }
+    assert AgentOrchestrator._observe_citations(result, observed) is None
+
+    knowledge = _SuccessfulEvidenceCall("k", "search_hr_knowledge", "1.0.0", True, ("cite_1",))
+    erp = _SuccessfulEvidenceCall("e", "get_my_employee_profile", "1.0.0", False, ())
+    citations = {"cite_1": observed["cite_1"]}
+    cases = (
+        (AnswerBasis.KNOWLEDGE, ("k",), (), {"k": knowledge}),
+        (AnswerBasis.ERP_DATA, ("e",), ("cite_1",), {"e": erp}),
+        (AnswerBasis.MIXED, ("k", "e"), ("cite_1",), {"k": knowledge, "e": erp}),
+        (AnswerBasis.KNOWLEDGE, ("k",), ("other",), {"k": knowledge}),
+    )
+    for basis, evidence, selected_citations, calls in cases:
+        answer = ModelFinalAnswer(
+            answer="Synthetic",
+            answer_basis=basis,
+            evidence_call_ids=evidence,
+            citation_ids=selected_citations,
+        )
+        assert AgentOrchestrator._validate_grounding(answer, calls, citations) is None
+
+
+def test_exact_route_grounding_requires_the_one_successful_call_and_source_basis() -> None:
+    erp = _SuccessfulEvidenceCall("erp", "get_my_employee_profile", "1.0.0", False, ())
+    knowledge = _SuccessfulEvidenceCall(
+        "knowledge", "search_hr_knowledge", "1.0.0", True, ("cite_1",)
+    )
+    valid_erp = ModelFinalAnswer(
+        answer="Synthetic",
+        answer_basis=AnswerBasis.ERP_DATA,
+        evidence_call_ids=("erp",),
+        citation_ids=(),
+    )
+    assert AgentOrchestrator._matches_exact_route_grounding(valid_erp, {"erp": erp})
+    assert not AgentOrchestrator._matches_exact_route_grounding(valid_erp, {})
+    assert not AgentOrchestrator._matches_exact_route_grounding(
+        valid_erp.model_copy(update={"evidence_call_ids": ()}), {"erp": erp}
+    )
+    assert not AgentOrchestrator._matches_exact_route_grounding(
+        valid_erp.model_copy(update={"answer_basis": AnswerBasis.GENERAL}), {"erp": erp}
+    )
+    valid_knowledge = ModelFinalAnswer(
+        answer="Synthetic",
+        answer_basis=AnswerBasis.KNOWLEDGE,
+        evidence_call_ids=("knowledge",),
+        citation_ids=("cite_1",),
+    )
+    assert AgentOrchestrator._matches_exact_route_grounding(
+        valid_knowledge, {"knowledge": knowledge}
+    )

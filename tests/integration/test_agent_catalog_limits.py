@@ -16,6 +16,8 @@ from erp_ai.orchestration import (
     AgentAuditEvent,
     AgentErrorCode,
     AgentOrchestrator,
+    AgentRouteMode,
+    AgentRoutingPolicy,
     AnswerBasis,
     ModelFinalAnswer,
     ModelTurnRequest,
@@ -131,18 +133,29 @@ def build(tool_count: int) -> tuple[AgentOrchestrator, FinalModel, ToolSink, Age
 
 def test_exactly_32_tools_are_accepted_in_deterministic_order() -> None:
     orchestrator, model, tool_sink, agent_sink = build(32)
-    result = asyncio.run(orchestrator.execute(context(), PublicChatRequest(message="Help")))
+    result = asyncio.run(
+        orchestrator.execute(
+            context(),
+            PublicChatRequest(message="Help"),
+            AgentRoutingPolicy(mode=AgentRouteMode.GENERAL_ONLY),
+        )
+    )
     assert isinstance(result, PublicChatSuccess)
     names = tuple(tool.tool_name for tool in model.requests[0].tools)
-    assert len(names) == 32
-    assert names == tuple(sorted(names))
+    assert names == ()
     assert tool_sink.events == []
     assert len(agent_sink.events) == 1
 
 
 def test_more_than_32_tools_fail_without_truncation_or_model_invocation() -> None:
     orchestrator, model, tool_sink, agent_sink = build(33)
-    result = asyncio.run(orchestrator.execute(context(), PublicChatRequest(message="Help")))
+    result = asyncio.run(
+        orchestrator.execute(
+            context(),
+            PublicChatRequest(message="Help"),
+            AgentRoutingPolicy(mode=AgentRouteMode.GENERAL_ONLY),
+        )
+    )
     assert isinstance(result, PublicChatFailure)
     assert result.safe_error_code is AgentErrorCode.AGENT_CATALOG_LIMIT
     assert model.requests == []

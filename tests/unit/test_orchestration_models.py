@@ -13,11 +13,13 @@ from erp_ai.orchestration import (
     ModelToolCall,
     ModelToolDefinition,
     ModelToolInteraction,
+    ModelToolSelection,
     ModelTurnRequest,
     PublicChatFailure,
     PublicChatSuccess,
     PublicCitation,
     ToolResultMessage,
+    ToolSelectionMode,
 )
 from erp_ai.orchestration.models import _validate_safe_numbers
 from erp_ai.tools import PublicToolFailure, PublicToolSuccess, ToolErrorCode
@@ -171,6 +173,12 @@ def failure_result(tool_name: str = "get_profile") -> PublicToolFailure:
     )
 
 
+class SyntheticSafeResult(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
+
+    value: str
+
+
 def interaction(call_id: str = "call_1", tool_name: str = "get_profile") -> ModelToolInteraction:
     assistant_call = ModelToolCall.from_arguments(
         call_id=call_id,
@@ -183,7 +191,11 @@ def interaction(call_id: str = "call_1", tool_name: str = "get_profile") -> Mode
         tool_result=ToolResultMessage(
             call_id=call_id,
             tool_name=tool_name,
-            result=failure_result(tool_name),
+            result=PublicToolSuccess(
+                tool_name=tool_name,
+                version="1.0.0",
+                result=SyntheticSafeResult(value="synthetic"),
+            ),
         ),
     )
 
@@ -194,6 +206,7 @@ def turn(*interactions: ModelToolInteraction) -> ModelTurnRequest:
         user_message="synthetic",
         response_language="en",
         tools=(),
+        tool_selection=ModelToolSelection(mode=ToolSelectionMode.FINAL_ONLY),
         interactions=interactions,
         turn_number=2,
     )
@@ -387,13 +400,15 @@ def test_sensitive_validation_errors_hide_inputs() -> None:
 def test_interactions_are_paired_ordered_immutable_and_repr_hidden() -> None:
     first = interaction("call_1")
     second = interaction("call_2")
-    request = turn(first, second)
-    assert request.interactions == (first, second)
+    request = turn(first)
+    assert request.interactions == (first,)
     assert "العربية" not in repr(request)
     with pytest.raises(ValidationError):
         request.interactions = ()  # type: ignore[misc]
     with pytest.raises(ValidationError):
         turn(first, first)
+    with pytest.raises(ValidationError):
+        turn(first, second)
 
 
 @pytest.mark.parametrize(
@@ -461,12 +476,6 @@ def test_constructed_raw_parsed_divergence_and_invalid_result_type_are_rejected(
     )
     with pytest.raises(ValidationError):
         ModelToolInteraction(assistant_call=valid.assistant_call, tool_result=invalid_message)
-
-
-class SyntheticSafeResult(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
-
-    value: str
 
 
 def test_interaction_supports_success_results() -> None:

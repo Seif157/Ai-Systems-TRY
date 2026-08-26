@@ -29,6 +29,7 @@ def test_model_turn_and_tool_result_roles_exclude_trusted_context() -> None:
         "user_message",
         "response_language",
         "tools",
+        "tool_selection",
         "interactions",
         "turn_number",
     }

@@ -8,7 +8,7 @@ from types import MappingProxyType
 from typing import Final, Literal
 
 import httpx
-from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
 from erp_ai.orchestration.models import (
     ModelFinalAnswer,
@@ -16,6 +16,7 @@ from erp_ai.orchestration.models import (
     ModelToolCall,
     ModelToolDefinition,
     ModelTurnRequest,
+    ToolSelectionMode,
     to_mutable_json,
 )
 
@@ -56,20 +57,6 @@ class OpenRouterAgentModelProviderConfig(BaseModel):
     maximum_request_bytes: int = Field(default=262_144, strict=True, ge=1, le=1_048_576)
     maximum_response_bytes: int = Field(default=262_144, strict=True, ge=1, le=1_048_576)
     maximum_final_answer_bytes: int = Field(default=32_768, strict=True, ge=1, le=131_072)
-    synthetic_forced_tool_name: str | None = Field(default=None, repr=False)
-
-    @field_validator("synthetic_forced_tool_name")
-    @classmethod
-    def validate_forced_tool_name(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        if (
-            not value
-            or len(value) > 100
-            or any(character not in "abcdefghijklmnopqrstuvwxyz0123456789_" for character in value)
-        ):
-            raise ValueError("synthetic forced tool name is invalid")
-        return value
 
     @classmethod
     def from_environment(cls) -> "OpenRouterAgentModelProviderConfig":
@@ -108,6 +95,10 @@ class OpenRouterAgentModelProvider:
     async def complete_turn(self, request: ModelTurnRequest) -> ModelResponse:
         """Complete one bounded turn without retaining provider continuation state."""
 
+        try:
+            request = ModelTurnRequest.model_validate(request, strict=True)
+        except Exception:
+            raise OpenRouterProviderUnavailable from None
         payload, known_tools, forced_tool = self._build_payload(request)
         prior_call_ids = frozenset(
             interaction.assistant_call.call_id for interaction in request.interactions
@@ -124,21 +115,18 @@ class OpenRouterAgentModelProvider:
             known_tools,
             forced_tool,
             prior_call_ids,
-            require_final=bool(
-                self.config.synthetic_forced_tool_name is not None and request.turn_number > 1
-            ),
+            require_final=request.tool_selection.mode is ToolSelectionMode.FINAL_ONLY,
         )
 
     def _build_payload(
         self, request: ModelTurnRequest
     ) -> tuple[dict[str, object], dict[str, ModelToolDefinition], str | None]:
         tools = {tool.tool_name: tool for tool in request.tools}
-        if len(tools) != len(request.tools):
-            raise OpenRouterProviderUnavailable
-        forced_tool = self.config.synthetic_forced_tool_name if request.turn_number == 1 else None
-        if forced_tool is not None and forced_tool not in tools:
-            raise OpenRouterProviderUnavailable
-
+        forced_tool = (
+            request.tool_selection.tool_name
+            if request.tool_selection.mode is ToolSelectionMode.REQUIRED_EXACT_TOOL
+            else None
+        )
         messages: list[dict[str, object]] = [
             {"role": "system", "content": "\n".join(request.policy_instructions)},
             {"role": "user", "content": request.user_message},
@@ -176,20 +164,25 @@ class OpenRouterAgentModelProvider:
                 }
             )
 
-        provider_tools = [self._provider_tool(tool) for tool in request.tools]
         payload: dict[str, object] = {
             "model": self.config.model,
             "messages": messages,
-            "tools": provider_tools,
             "reasoning": {"exclude": True},
             "provider": {"require_parameters": True, "allow_fallbacks": False},
             "stream": False,
         }
+        if request.tools:
+            payload["tools"] = [self._provider_tool(tool) for tool in request.tools]
         if forced_tool is not None:
             payload["tool_choice"] = {
                 "type": "function",
                 "function": {"name": forced_tool},
             }
+        elif request.tool_selection.mode in (
+            ToolSelectionMode.NO_TOOLS,
+            ToolSelectionMode.FINAL_ONLY,
+        ):
+            payload["tool_choice"] = "none"
         return payload, tools, forced_tool
 
     @staticmethod

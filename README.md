@@ -94,11 +94,16 @@ assistant call's exact bounded JSON arguments and immutable parsed projection be
 untrusted public tool result, in original order. It adds no model provider, network access,
 reasoning state, credentials, or production wiring.
 
-Step 20B adds an uncommitted generic OpenRouter adapter with a certified
+Step 20B adds a generic OpenRouter adapter with a certified
 `cohere/north-mini-code:free` synthetic-test-only profile. A live synthetic probe proved exact
 named-tool selection and continuation after discarding provider reasoning state. The adapter is not
 wired into startup and is not approved for real ERP content, production privacy, or Arabic HR
 quality.
+
+Step 21 adds an uncommitted provider-neutral forced-tool routing contract. Server-owned
+`general_only` runs expose no tools; `exact_read_then_final` runs expose one already-authorized
+read tool, require that call, and allow one grounded final turn after success. No public routing,
+keyword classifier, multi-tool route, production model composition, or new audit field is added.
 
 Step 17 is in progress on an uncommitted feature branch: deterministic, exact-arithmetic hybrid
 knowledge retrieval is evaluation-only and retains the semantic threshold status

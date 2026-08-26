@@ -30,6 +30,7 @@ packages = ["src/erp_ai"]
 
 [tool.hatch.build.targets.wheel.shared-data]
 "docs/contracts/openrouter-agent-model-provider.md" = "share/doc/erp-ai-platform/openrouter-agent-model-provider.md"
+"docs/contracts/forced-tool-routing.md" = "share/doc/erp-ai-platform/forced-tool-routing.md"
 
 [tool.hatch.build.targets.sdist]
 exclude = [

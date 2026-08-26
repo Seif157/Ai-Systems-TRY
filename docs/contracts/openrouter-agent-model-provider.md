@@ -32,10 +32,10 @@ always send `reasoning.exclude=true`, `provider.require_parameters=true`,
 the certified endpoint rejects the complete profile when it is present. The adapter independently
 accepts no more than one returned call.
 
-The provider-neutral request does not yet express a server-required tool choice. A configured
-named-function `tool_choice` is therefore permitted only by this synthetic-test adapter on turn
-one. Production routing needs an approved provider-neutral forced-tool policy before this mechanism
-can be used outside synthetic certification. No public request can select it.
+The provider-neutral request now carries the Step 21 server-owned selection semantics. The adapter
+maps `required_exact_tool` to named-function `tool_choice`, and maps `no_tools` and `final_only` to
+`tool_choice="none"`. No public request can select these values. Local response validation remains
+authoritative even when a provider accepts the hint.
 
 ## Response validation
 
@@ -78,5 +78,5 @@ skipped unless `ERP_AI_REQUIRE_OPENROUTER_TESTS=1` and `ERP_AI_OPENROUTER_API_KE
 It uses fixed synthetic content only and performs no retry.
 
 Production adoption still requires an approved model/provider, privacy and retention review,
-secret-manager integration, a provider-neutral forced-tool routing policy, operational monitoring,
+secret-manager integration, a trusted production route resolver, operational monitoring,
 rate and cost controls, and independent Arabic/English ERP evaluation.
