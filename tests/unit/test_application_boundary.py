@@ -126,7 +126,8 @@ def intent(**changes: object) -> TrustedRouteIntent:
 
 def reference() -> TrustedRequestReference:
     return TrustedRequestReference(
-        request_id="request_1", resolver_handle=SecretStr("opaque-private-handle")
+        request_id="request_1",
+        resolver_reference=SecretStr("cnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnI"),
     )
 
 
@@ -248,7 +249,10 @@ def test_reference_intent_and_audit_models_are_strict_private_and_revalidated() 
         TrustedRouteIntent.model_validate(
             intent().model_copy(update={"issued_at": NOW.replace(tzinfo=None)}), strict=True
         )
-    constructed = TrustedRequestReference.model_construct(request_id="", resolver_handle="private")
+    constructed = TrustedRequestReference.model_construct(
+        request_id="",
+        resolver_reference="cnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnI",
+    )
     with pytest.raises(ValidationError):
         TrustedRequestReference.model_validate(constructed, strict=True)
     with pytest.raises(ValidationError):

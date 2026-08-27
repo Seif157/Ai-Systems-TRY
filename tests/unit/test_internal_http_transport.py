@@ -57,7 +57,8 @@ class Authenticator:
         if self.outcome is not None:
             return self.outcome  # type: ignore[return-value]
         return TrustedRequestReference(
-            request_id=request.request_id, resolver_handle="opaque_handle"
+            request_id=request.request_id,
+            resolver_reference="cnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnI",
         )
 
 
@@ -477,7 +478,7 @@ def test_envelope_and_media_rejections_precede_authentication(
     "field",
     (
         "request_id",
-        "resolver_handle",
+        "resolver_reference",
         "customer_environment_id",
         "user_id",
         "roles",
@@ -574,9 +575,11 @@ def test_authenticator_failures_are_contained_and_audited(
 
 def test_sensitive_ingress_values_never_cross_public_or_audit_boundaries(caplog: Any) -> None:
     bearer = "bearer_assertion_distinctive_marker"
-    resolver = "resolver_handle_distinctive_marker"
+    resolver = "cmVzb2x2ZXJfcmVmZXJlbmNlX21hcmtlcl8xMjM0NTY"
     message = "user_message_distinctive_marker"
-    auth = Authenticator(TrustedRequestReference(request_id=REQUEST_ID, resolver_handle=resolver))
+    auth = Authenticator(
+        TrustedRequestReference(request_id=REQUEST_ID, resolver_reference=resolver)
+    )
     app, _, application, audit, _, _ = build(auth=auth)
     with TestClient(app) as client:
         response = request(
@@ -614,10 +617,11 @@ def test_sensitive_ingress_values_never_cross_public_or_audit_boundaries(caplog:
 def test_reference_is_revalidated_and_bound_to_server_request_id() -> None:
     outcomes = (
         TrustedRequestReference(
-            request_id="223e4567-e89b-42d3-a456-426614174000", resolver_handle="x"
+            request_id="223e4567-e89b-42d3-a456-426614174000",
+            resolver_reference="cnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnI",
         ),
-        TrustedRequestReference.model_construct(request_id=REQUEST_ID, resolver_handle=""),
-        {"request_id": REQUEST_ID, "resolver_handle": "opaque"},
+        TrustedRequestReference.model_construct(request_id=REQUEST_ID, resolver_reference=""),
+        {"request_id": REQUEST_ID, "resolver_reference": "a" * 43},
     )
     for outcome in outcomes:
         auth = Authenticator(outcome)
@@ -844,7 +848,8 @@ def test_concurrent_duplicate_request_id_fails_before_authentication() -> None:
             self.entered.set()
             await self.release.wait()
             return TrustedRequestReference(
-                request_id=request.request_id, resolver_handle="opaque_handle"
+                request_id=request.request_id,
+                resolver_reference="cnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnI",
             )
 
     auth = BlockingAuthenticator()

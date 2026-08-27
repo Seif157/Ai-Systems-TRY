@@ -21,7 +21,10 @@ class SyntheticAuthenticator:
     async def authenticate(
         self, request: TrustedIngressAuthenticationRequest
     ) -> TrustedRequestReference:
-        return TrustedRequestReference(request_id=request.request_id, resolver_handle="synthetic")
+        return TrustedRequestReference(
+            request_id=request.request_id,
+            resolver_reference="cnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnI",
+        )
 
 
 class SyntheticApplication:

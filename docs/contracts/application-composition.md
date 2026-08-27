@@ -42,3 +42,7 @@ server request-ID factory, application audit sink, and lifecycle owner explicitl
 construct OpenRouter, PostgreSQL, ERP, knowledge, resolver, verifier, gateway, or orchestrator
 dependencies. Pre-application failures are audited by the transport; forwarded requests are
 audited only by the existing trusted application.
+Step 25 provides concrete authenticator, resolver, and authorization-snapshot verifier adapters,
+but deliberately does not add production FastAPI composition. Future composition must inject the
+static verification keyring, aware clock, fixed ERP trust origin, and externally provisioned mTLS
+`SSLContext`, then explicitly open and close the shared trust client.

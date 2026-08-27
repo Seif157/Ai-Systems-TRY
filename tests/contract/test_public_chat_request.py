@@ -40,7 +40,7 @@ def test_accepts_and_normalizes_preferred_response_language() -> None:
         "issued_at",
         "authorization_snapshot_id",
         "trusted_request_reference",
-        "resolver_handle",
+        "resolver_reference",
         "context",
         "route_intent",
         "intent_code",

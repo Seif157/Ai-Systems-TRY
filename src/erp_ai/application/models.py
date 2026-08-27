@@ -1,5 +1,6 @@
 """Strict internal contracts for trusted application resolution."""
 
+import base64
 from datetime import datetime
 from typing import Literal
 
@@ -19,7 +20,22 @@ class TrustedRequestReference(BaseModel):
     )
 
     request_id: Identifier = Field(repr=False)
-    resolver_handle: SecretStr = Field(repr=False, min_length=1, max_length=512)
+    resolver_reference: SecretStr = Field(repr=False, min_length=43, max_length=43)
+
+    @field_validator("resolver_reference")
+    @classmethod
+    def canonical_reference(cls, value: SecretStr) -> SecretStr:
+        encoded = value.get_secret_value()
+        if "=" in encoded:
+            raise ValueError("resolver reference must be canonical unpadded base64url")
+        try:
+            decoded = base64.urlsafe_b64decode(encoded + "=")
+        except Exception:
+            raise ValueError("resolver reference must be canonical unpadded base64url") from None
+        canonical = base64.urlsafe_b64encode(decoded).rstrip(b"=").decode("ascii")
+        if len(decoded) != 32 or canonical != encoded:
+            raise ValueError("resolver reference must be canonical unpadded base64url")
+        return value
 
 
 class TrustedRouteIntent(BaseModel):

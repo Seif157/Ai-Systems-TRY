@@ -128,7 +128,8 @@ def run(
         app.execute(
             PublicChatRequest(message="The same free-form text never selects the route."),
             TrustedRequestReference(
-                request_id="request_agent_1", resolver_handle=SecretStr("opaque")
+                request_id="request_agent_1",
+                resolver_reference=SecretStr("cnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnI"),
             ),
         )
     )

@@ -26,7 +26,9 @@ gateway still filter and reauthorize against trusted context.
 
 ## Internal HTTP ingress
 
-Step 24 accepts only the public chat body and an opaque ERP assertion. Authentication produces the
+Step 24 accepts only the public chat body and an opaque ERP assertion. Step 25 verifies an exact
+Ed25519 compact-JWS profile locally, then resolves its one-time random reference through the fixed
+mTLS ERP trust API. Authentication produces the
 opaque resolver reference only; it cannot mint tenant, user, entitlement, route, tool, or snapshot
 authority. The trusted resolver still supplies context and approved workflow intent, route intent
 is not authorization, and authorization-snapshot verification remains mandatory.

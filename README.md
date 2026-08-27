@@ -74,6 +74,12 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 
 ## Project status
 
+Step 25 adds production adapters for strict ERP-signed Ed25519 request assertions and
+one-time trusted ERP resolution over a fixed, lifecycle-managed mTLS HTTP boundary. Assertions carry
+only cryptographic/request bindings and a random opaque reference; current context, route intent,
+and snapshot status remain ERP-resolved server data. No private signing key, replay cache, production
+composition, retry, or public identity/routing field is added.
+
 Step 24 adds a dependency-injected internal FastAPI transport for ERP-backend chat
 requests. It strictly authenticates an opaque ERP assertion through a provider-neutral boundary,
 generates its own request UUID, binds authentication to canonical request content, and preserves

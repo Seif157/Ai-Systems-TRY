@@ -41,7 +41,7 @@ def test_public_body_and_authentication_contracts_are_disjoint() -> None:
 def test_authenticator_can_return_only_the_existing_opaque_reference() -> None:
     assert set(TrustedRequestReference.model_json_schema()["properties"]) == {
         "request_id",
-        "resolver_handle",
+        "resolver_reference",
     }
     request = TrustedIngressAuthenticationRequest(
         request_id="123e4567-e89b-42d3-a456-426614174000",

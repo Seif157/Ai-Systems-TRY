@@ -33,7 +33,10 @@ class Authenticator:
     async def authenticate(
         self, request: TrustedIngressAuthenticationRequest
     ) -> TrustedRequestReference:
-        return TrustedRequestReference(request_id=request.request_id, resolver_handle="opaque")
+        return TrustedRequestReference(
+            request_id=request.request_id,
+            resolver_reference="cnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnI",
+        )
 
 
 class Ids:

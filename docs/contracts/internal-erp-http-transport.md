@@ -16,7 +16,9 @@ canonical body digest, and the repr-hidden assertion. It may return only the exi
 match. A production authenticator must verify trusted issuer, intended AI-service audience,
 signature or equivalent authenticity, issuance and expiry, replay policy, method, route, body
 digest, and approved key rotation/revocation. No temporary JWT, HMAC, OAuth, API-key, or mTLS
-implementation exists here.
+implementation exists in the transport itself. Step 25 supplies the strict Ed25519 verifier and
+one-time ERP resolver described in `erp-signed-request-assertion.md` and `erp-trust-api.md`; runtime
+composition remains deferred.
 
 The body digest is SHA-256 over compact, insertion-ordered UTF-8 JSON with no trailing newline:
 
