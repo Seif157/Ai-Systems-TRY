@@ -5,7 +5,10 @@ from typing import Protocol, runtime_checkable
 
 from psycopg_pool import AsyncConnectionPool
 
-from erp_ai.infrastructure.postgres_audit.config import StaticAuditDatabaseConfig
+from erp_ai.infrastructure.postgres_audit.config import (
+    RuntimeAuditDatabaseConfig,
+    StaticAuditDatabaseConfig,
+)
 from erp_ai.infrastructure.postgres_audit.contracts import (
     AuditDatabaseKind,
     verify_database_contract,
@@ -22,9 +25,13 @@ class AuditDatabaseRouter(Protocol):
 class StaticAuditDatabaseRouter:
     __slots__ = ("_config", "_control", "_customers", "_lifecycle_lock", "_started")
 
-    def __init__(self, config: StaticAuditDatabaseConfig) -> None:
-        self._config = StaticAuditDatabaseConfig.model_validate(
-            config.model_dump(mode="python"), strict=True
+    def __init__(self, config: RuntimeAuditDatabaseConfig | StaticAuditDatabaseConfig) -> None:
+        self._config = (
+            RuntimeAuditDatabaseConfig.from_static(config)
+            if isinstance(config, StaticAuditDatabaseConfig)
+            else RuntimeAuditDatabaseConfig.model_validate(
+                config.model_dump(mode="python"), strict=True
+            )
         )
         self._control: AsyncConnectionPool | None = None
         self._customers: dict[str, AsyncConnectionPool] = {}

@@ -96,4 +96,8 @@ jobs:
           enable-cache: true
       - run: uv python install 3.12
       - run: uv sync --locked --dev --python 3.12
-      - run: uv run pytest tests/integration/test_postgres_audit_storage.py -m postgres --no-cov
+      - run: >-
+          uv run pytest -m postgres --no-cov
+          tests/integration/test_postgres_audit_storage.py
+          tests/integration/test_postgres_http_transport_audit.py
+          tests/integration/test_production_runtime_composition.py

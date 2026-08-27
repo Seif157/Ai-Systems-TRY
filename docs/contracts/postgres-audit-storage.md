@@ -1,5 +1,13 @@
 # PostgreSQL audit storage contract
 
+Production composition retains only `RuntimeAuditDatabaseConfig`: writer DSNs and frozen static
+identity expectations. Migration-owner credentials, migration execution, DDL, repair, and schema
+changes are excluded. Startup verifies the existing Step 23 contract without changing its SQL,
+digests, checksums, RLS, privileges, ownership, or triggers.
+
+The runtime wheel uses pure `psycopg`; production hosts must provide a compatible system `libpq`.
+The development-only `psycopg-binary` package is not a production `Requires-Dist` dependency.
+
 Version `1.0.0` uses a split, append-only topology. The central control-plane database stores
 only `ApplicationAuditEvent`, because application failures can occur before tenant resolution.
 It never receives resolved customer or user identity. Each customer has a separately routed

@@ -1,5 +1,9 @@
 # Internal ERP HTTP transport contract
 
+Production transport is created only by the Step 26 composition root from externally validated
+configuration, authenticator, request-ID factory, application sink, and lifecycle. There is no
+module-level FastAPI app. Readiness follows that exact lifecycle; liveness performs no I/O.
+
 `POST /v1/chat` is an internal ERP-backend-to-AI boundary. Browsers and mobile applications must
 never call it directly, and private networking is not authentication. The JSON body is exactly
 `PublicChatRequest`: message, non-streaming flag, and optional response-language preference. It

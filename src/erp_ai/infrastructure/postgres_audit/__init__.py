@@ -3,6 +3,9 @@
 from .config import (
     ControlAuditDatabaseConfig,
     CustomerAuditDatabaseRoute,
+    RuntimeAuditDatabaseConfig,
+    RuntimeControlAuditDatabaseConfig,
+    RuntimeCustomerAuditDatabaseRoute,
     StaticAuditDatabaseConfig,
 )
 from .contracts import AuditDatabaseKind, contract_digest, event_digest
@@ -20,6 +23,9 @@ __all__ = [
     "PostgresAgentAuditSink",
     "PostgresApplicationAuditSink",
     "PostgresToolAuditSink",
+    "RuntimeAuditDatabaseConfig",
+    "RuntimeControlAuditDatabaseConfig",
+    "RuntimeCustomerAuditDatabaseRoute",
     "StaticAuditDatabaseConfig",
     "StaticAuditDatabaseRouter",
     "contract_digest",

@@ -1,5 +1,9 @@
 # Agent orchestration contract
 
+Step 26 injects the model provider and its mandatory lifecycle; it does not construct or approve a
+provider. Provider approval remains a deployment-owner responsibility. The exact trusted route is
+validated before readiness and public message content cannot select it.
+
 `AgentOrchestrator` is a stateless, model-provider-neutral service for one public chat request. It
 connects trusted context, entitlement filtering, an authorized public tool catalog, an injected
 `AgentModelProvider`, the authoritative `ReadToolGateway`, validated public results, and a mandatory

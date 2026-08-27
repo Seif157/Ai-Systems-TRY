@@ -1,5 +1,9 @@
 # ERP trust API contract
 
+Step 26 constructs one closed ERP trust client and shares it between trusted resolution and
+authorization-snapshot verification. The externally provisioned TLS context remains deployment
+owned. Readiness proves startup completed, not that the ERP endpoint remains reachable.
+
 The AI uses one normalized fixed HTTPS origin over an externally provisioned mTLS `SSLContext`.
 Certificate verification, hostname checking, and TLS 1.2 or newer are validated. Python cannot
 reliably prove that a client certificate/private key was loaded into an existing `SSLContext`, so

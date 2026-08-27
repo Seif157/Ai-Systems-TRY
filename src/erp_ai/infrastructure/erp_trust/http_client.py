@@ -59,6 +59,13 @@ class ErpTrustHttpClient:
         async with self._lifecycle_lock:
             if self._closed or self._client is not None:
                 raise ErpTrustUnavailable
+            if self._ssl_context is None:
+                raise ErpTrustUnavailable
+            try:
+                validate_production_ssl_context(self._ssl_context)
+            except Exception:
+                self._closed = True
+                raise ErpTrustUnavailable from None
             timeout = httpx.Timeout(
                 connect=self.config.connect_timeout_seconds,
                 read=self.config.read_timeout_seconds,

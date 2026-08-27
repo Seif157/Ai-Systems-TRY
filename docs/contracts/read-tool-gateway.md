@@ -1,5 +1,10 @@
 # Read-only ERP tool gateway contract
 
+Production composition requires an exact one-to-one registry/handler match and rejects command,
+missing, extra, duplicate, wrong-version, or non-strict handlers before startup. The gateway keeps
+read-only authorization authoritative and uses the tool sink from the same audit router as the
+application and agent sinks.
+
 `ReadToolGateway` is the only approved execution boundary for model-requested read tools. It is
 an immutable in-memory service constructed from a validated `CapabilityRegistry`, a fixed
 collection of trusted `ReadToolHandler` implementations, and a mandatory `ToolAuditSink`. It

@@ -1,5 +1,10 @@
 # ERP AI Platform
 
+> **Step 26 status:** secure production runtime composition is implemented as an externally
+> provisioned, environment-free composition root. It supplies no server launcher or production
+> provider and never runs migrations at startup. See
+> `docs/contracts/production-runtime-composition.md`.
+
 A modular, entitlement-aware AI layer for an ERP product.
 
 The platform uses one shared AI core and a separate capability package for each ERP domain. Every customer receives only the capabilities licensed and enabled in their ERP installation. The AI never decides access by itself: customer context, module entitlements, roles, and data scope are resolved and enforced by trusted application services before any retrieval or tool call.

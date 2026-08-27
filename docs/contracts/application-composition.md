@@ -1,5 +1,9 @@
 # Provider-neutral application composition
 
+The production binding is defined by `production-runtime-composition.md`. It constructs the
+trusted application only after exact registry/handler and route-catalog validation, shares one
+application audit sink with transport, and performs no message-based route inference.
+
 `TrustedChatApplication` fixes the internal processing order:
 
 1. revalidate the public request and opaque trusted reference;

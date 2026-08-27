@@ -7,7 +7,10 @@ from typing import Any
 from psycopg import AsyncConnection, Error
 
 from erp_ai.application.audit import ApplicationAuditEvent
-from erp_ai.infrastructure.postgres_audit.config import StaticAuditDatabaseConfig
+from erp_ai.infrastructure.postgres_audit.config import (
+    RuntimeAuditDatabaseConfig,
+    StaticAuditDatabaseConfig,
+)
 from erp_ai.infrastructure.postgres_audit.contracts import event_digest, validated_event_values
 from erp_ai.infrastructure.postgres_audit.errors import (
     AuditStorageConflict,
@@ -20,7 +23,7 @@ from erp_ai.tools.audit import ToolAuditEvent
 
 async def _settings(
     connection: AsyncConnection[tuple[Any, ...]],
-    config: StaticAuditDatabaseConfig,
+    config: RuntimeAuditDatabaseConfig,
     customer: str | None,
 ) -> None:
     for setting, value in (
@@ -79,8 +82,19 @@ def _translate_driver_error(error: Error) -> AuditStorageUnavailable:
 class PostgresApplicationAuditSink:
     __slots__ = ("_config", "_router")
 
-    def __init__(self, router: AuditDatabaseRouter, config: StaticAuditDatabaseConfig) -> None:
-        self._router, self._config = router, config
+    def __init__(
+        self,
+        router: AuditDatabaseRouter,
+        config: RuntimeAuditDatabaseConfig | StaticAuditDatabaseConfig,
+    ) -> None:
+        self._router = router
+        self._config = (
+            RuntimeAuditDatabaseConfig.from_static(config)
+            if isinstance(config, StaticAuditDatabaseConfig)
+            else RuntimeAuditDatabaseConfig.model_validate(
+                config.model_dump(mode="python"), strict=True
+            )
+        )
 
     async def record(self, event: ApplicationAuditEvent) -> None:
         try:
@@ -120,8 +134,19 @@ class PostgresApplicationAuditSink:
 class PostgresAgentAuditSink:
     __slots__ = ("_config", "_router")
 
-    def __init__(self, router: AuditDatabaseRouter, config: StaticAuditDatabaseConfig) -> None:
-        self._router, self._config = router, config
+    def __init__(
+        self,
+        router: AuditDatabaseRouter,
+        config: RuntimeAuditDatabaseConfig | StaticAuditDatabaseConfig,
+    ) -> None:
+        self._router = router
+        self._config = (
+            RuntimeAuditDatabaseConfig.from_static(config)
+            if isinstance(config, StaticAuditDatabaseConfig)
+            else RuntimeAuditDatabaseConfig.model_validate(
+                config.model_dump(mode="python"), strict=True
+            )
+        )
 
     async def record(self, event: AgentAuditEvent) -> None:
         try:
@@ -165,8 +190,19 @@ class PostgresAgentAuditSink:
 class PostgresToolAuditSink:
     __slots__ = ("_config", "_router")
 
-    def __init__(self, router: AuditDatabaseRouter, config: StaticAuditDatabaseConfig) -> None:
-        self._router, self._config = router, config
+    def __init__(
+        self,
+        router: AuditDatabaseRouter,
+        config: RuntimeAuditDatabaseConfig | StaticAuditDatabaseConfig,
+    ) -> None:
+        self._router = router
+        self._config = (
+            RuntimeAuditDatabaseConfig.from_static(config)
+            if isinstance(config, StaticAuditDatabaseConfig)
+            else RuntimeAuditDatabaseConfig.model_validate(
+                config.model_dump(mode="python"), strict=True
+            )
+        )
 
     async def record(self, event: ToolAuditEvent) -> None:
         try:
