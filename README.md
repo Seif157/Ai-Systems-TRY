@@ -74,6 +74,12 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 
 ## Project status
 
+Step 24 adds a dependency-injected internal FastAPI transport for ERP-backend chat
+requests. It strictly authenticates an opaque ERP assertion through a provider-neutral boundary,
+generates its own request UUID, binds authentication to canonical request content, and preserves
+all trusted resolution, authorization-snapshot, and audit ownership boundaries. No concrete ERP
+authenticator or production server composition is included.
+
 Step 23 adds PostgreSQL audit adapters with a split topology: minimal application
 events use one central control-plane database, while agent and tool events use one statically
 routed database per customer. Audit pools and credentials remain separate from ERP and knowledge

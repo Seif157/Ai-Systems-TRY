@@ -34,3 +34,11 @@ approval, and operational lifecycle remain future work.
 Step 23 supplies a PostgreSQL application sink for the unchanged four-field event. It targets only
 the central control-plane audit database and cannot store resolved customer or user identity. See
 [`postgres-audit-storage.md`](postgres-audit-storage.md).
+
+## Internal transport composition
+
+The Step 24 HTTP application factory requires the trusted application, ingress authenticator,
+server request-ID factory, application audit sink, and lifecycle owner explicitly. It does not
+construct OpenRouter, PostgreSQL, ERP, knowledge, resolver, verifier, gateway, or orchestrator
+dependencies. Pre-application failures are audited by the transport; forwarded requests are
+audited only by the existing trusted application.

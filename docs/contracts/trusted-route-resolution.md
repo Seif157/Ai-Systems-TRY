@@ -23,3 +23,10 @@ exact read tool/version. It never reads message text and uses no keyword, regex,
 classifier, or fallback. Catalog validation proves only registration, read-only status, version,
 and installed handler availability. The resolved route is not authorization; Step 21 and the
 gateway still filter and reauthorize against trusted context.
+
+## Internal HTTP ingress
+
+Step 24 accepts only the public chat body and an opaque ERP assertion. Authentication produces the
+opaque resolver reference only; it cannot mint tenant, user, entitlement, route, tool, or snapshot
+authority. The trusted resolver still supplies context and approved workflow intent, route intent
+is not authorization, and authorization-snapshot verification remains mandatory.

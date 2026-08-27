@@ -33,3 +33,10 @@ runtime writers receive no event-table SELECT or direct function execution. Cust
 RLS against both a transaction-local trusted customer setting and the immutable database identity.
 Immutable triggers are defense in depth. Cancellation propagates; driver failures become generic
 storage failures.
+
+## HTTP pre-application failures
+
+Step 24 uses the unchanged application event and central control database for completed failures
+that occur before trusted application invocation. Bearer assertions, messages, request digests,
+headers, hosts, resolver handles, and framework/provider details are excluded. Once application
+execution begins, the transport emits no audit event, preventing double application auditing.
