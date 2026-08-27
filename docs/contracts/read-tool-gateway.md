@@ -107,3 +107,6 @@ auditing is separate and does not replace any tool audit.
   integrations are designed together.
 - Context freshness and authorization snapshot verification remain upstream responsibilities.
 - Tool results are typed but no public response-redaction policy exists yet.
+
+Step 23 routes the unchanged tool event to the statically configured customer audit database. The
+sink cannot access arguments, results, ERP pools, or knowledge pools.

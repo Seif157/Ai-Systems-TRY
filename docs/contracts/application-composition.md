@@ -30,3 +30,7 @@ hidden default.
 The current OpenRouter model remains synthetic-test-only. Production transport, trusted ERP
 identity integration, intent minting, snapshot verification, audit delivery, provider/privacy
 approval, and operational lifecycle remain future work.
+
+Step 23 supplies a PostgreSQL application sink for the unchanged four-field event. It targets only
+the central control-plane audit database and cannot store resolved customer or user identity. See
+[`postgres-audit-storage.md`](postgres-audit-storage.md).

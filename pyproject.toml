@@ -33,6 +33,8 @@ packages = ["src/erp_ai"]
 "docs/contracts/forced-tool-routing.md" = "share/doc/erp-ai-platform/forced-tool-routing.md"
 "docs/contracts/trusted-route-resolution.md" = "share/doc/erp-ai-platform/trusted-route-resolution.md"
 "docs/contracts/application-composition.md" = "share/doc/erp-ai-platform/application-composition.md"
+"docs/contracts/postgres-audit-storage.md" = "share/doc/erp-ai-platform/postgres-audit-storage.md"
+"docs/deployment/postgres-audit-storage.md" = "share/doc/erp-ai-platform/deployment/postgres-audit-storage.md"
 
 [tool.hatch.build.targets.sdist]
 exclude = [

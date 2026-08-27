@@ -74,6 +74,11 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 
 ## Project status
 
+Step 23 adds PostgreSQL audit adapters with a split topology: minimal application
+events use one central control-plane database, while agent and tool events use one statically
+routed database per customer. Audit pools and credentials remain separate from ERP and knowledge
+storage. Retention, legal hold, backup, SIEM delivery, and readers remain future work.
+
 Step 18 is in progress: version 1 was invalidated before checkpoint and version 2.0.0 is a
 machine-authored, unreviewed bilingual synthetic HR benchmark that lives only
 under test fixtures. It is not customer policy, human-labelled evidence, or production-quality

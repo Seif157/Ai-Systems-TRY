@@ -104,3 +104,6 @@ selected through `PublicChatRequest`.
 The Step 22 outer application boundary resolves and verifies the trusted intent before invoking
 this orchestrator. Failures before invocation have their own minimal application audit and produce
 no agent or tool audit.
+
+Step 23 routes the unchanged agent event through a startup-configured customer audit pool. It is
+never written to the central application-audit database or to ERP/knowledge pools.
