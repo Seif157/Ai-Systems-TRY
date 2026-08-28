@@ -3,6 +3,7 @@
 from typing import Protocol, runtime_checkable
 
 from erp_ai.capabilities.hr_core.models import EmployeeProfileRecord
+from erp_ai.context import TrustedRequestContext
 
 
 @runtime_checkable
@@ -12,7 +13,5 @@ class HrCoreReadProvider(Protocol):
     async def get_my_employee_profile(
         self,
         *,
-        customer_environment_id: str,
-        employee_id: str,
-        authorized_legal_entity_ids: tuple[str, ...],
+        context: TrustedRequestContext,
     ) -> EmployeeProfileRecord | None: ...

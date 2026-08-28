@@ -1,5 +1,8 @@
 # Internal ERP HTTP transport contract
 
+The inbound ERP-to-AI transport is distinct from the outbound Laravel read client. Neither exposes
+public fields for origins, certificates, database routing, model selection, or tool policy.
+
 Production transport is created only by the Step 26 composition root from externally validated
 configuration, authenticator, request-ID factory, application sink, and lifecycle. There is no
 module-level FastAPI app. Readiness follows that exact lifecycle; liveness performs no I/O.

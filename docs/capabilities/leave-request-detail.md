@@ -1,5 +1,9 @@
 # Leave: get my request
 
+The production provider contract maps this tool only to
+`POST /internal/ai/v1/leave/requests/get-self`. Laravel must make nonexistent, foreign, and
+out-of-scope records indistinguishable.
+
 `get_my_leave_request` is a read-only employee-self-service tool for one owned Leave request and
 its safe status timeline. It is an in-memory contract backed only by synthetic fake providers.
 

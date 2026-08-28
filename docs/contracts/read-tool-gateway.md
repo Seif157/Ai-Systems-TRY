@@ -1,5 +1,9 @@
 # Read-only ERP tool gateway contract
 
+For Laravel-backed reads, gateway denial occurs before any outbound request. Gateway authorization
+does not grant ERP access: Laravel independently revalidates the snapshot and business scope. The
+gateway has no URL, database, cursor-signing, or Laravel routing authority.
+
 Production composition requires an exact one-to-one registry/handler match and rejects command,
 missing, extra, duplicate, wrong-version, or non-strict handlers before startup. The gateway keeps
 read-only authorization authoritative and uses the tool sink from the same audit router as the

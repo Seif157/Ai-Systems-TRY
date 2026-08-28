@@ -41,11 +41,14 @@ class GetMyEmployeeProfileHandler:
         if context.employee_id is None:
             raise _ProfileUnavailableError("employee context is required")
 
-        record = await self.provider.get_my_employee_profile(
-            customer_environment_id=context.customer_environment_id,
-            employee_id=context.employee_id,
-            authorized_legal_entity_ids=context.legal_entity_ids,
-        )
+        if getattr(self.provider, "uses_trusted_context", False):
+            record = await self.provider.get_my_employee_profile(context=context)
+        else:  # Compatibility for pre-contract injected test/legacy providers.
+            record = await self.provider.get_my_employee_profile(  # type: ignore[call-arg]
+                customer_environment_id=context.customer_environment_id,
+                employee_id=context.employee_id,
+                authorized_legal_entity_ids=context.legal_entity_ids,
+            )
         if record is None:
             raise _ProfileUnavailableError("profile record unavailable")
         if record.employee_id != context.employee_id:

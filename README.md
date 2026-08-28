@@ -1,9 +1,9 @@
 # ERP AI Platform
 
-> **Step 26 status:** secure production runtime composition is implemented as an externally
-> provisioned, environment-free composition root. It supplies no server launcher or production
-> provider and never runs migrations at startup. See
-> `docs/contracts/production-runtime-composition.md`.
+> **Step 27 status:** a frozen capability-specific Laravel ERP read API contract and strict
+> fixed-origin mTLS Python client are implemented for HR Core and Leave. Only synthetic
+> Python-side behavior is validated. No Laravel implementation, real ERP deployment, or joint
+> interoperability result exists yet. See `docs/contracts/laravel-erp-read-api.md`.
 
 A modular, entitlement-aware AI layer for an ERP product.
 
@@ -79,6 +79,11 @@ RAG is not used as a replacement for database queries. Transactional ERP rows ar
 
 ## Project status
 
+Step 27 adds one shared lifecycle-managed Python client for four read-only Laravel ERP operations.
+Laravel remains solely responsible for database-per-customer routing, authoritative snapshot and
+scope revalidation, business rules, cursor security, and record visibility. This repository does
+not contain or validate the Laravel implementation.
+
 Step 25 adds production adapters for strict ERP-signed Ed25519 request assertions and
 one-time trusted ERP resolution over a fixed, lifecycle-managed mTLS HTTP boundary. Assertions carry
 only cryptographic/request bindings and a random opaque reference; current context, route intent,
@@ -146,10 +151,10 @@ customer-policy quality and production-scale exact-search performance remain unv
 | Trusted request context | Implemented | Versioned server-owned context, public boundary, and redacted audit projection |
 | Capability registry | Implemented | Immutable governed manifests; module, permission, role, purpose, and read-only filtering |
 | Read-tool gateway | Implemented | Reauthorization, audit-free public results, mandatory fail-closed audit delivery |
-| HR Core self profile | Implemented contract | Linked-employee self-service authorization, schema-aligned safe output, ownership checks, and audit metadata; no real ERP adapter |
-| Leave balances | Implemented contract | ERP-calculated Decimal balances, dual-module entitlement, ownership/scope checks, safe output, and audit metadata; no real ERP adapter |
-| Leave request list | Implemented contract | Canonically provider-ordered opaque-cursor pages, page invariants, ownership/scope checks, safe summaries, and audit metadata; no real ERP adapter |
-| Leave request detail | Implemented contract | Owned UUID selector, customer/employee/legal-entity checks, validated append-only status timeline, safe detail, and audit minimization; no real ERP adapter |
+| HR Core self profile | Implemented adapter | Strict Laravel mTLS read provider, linked-employee authorization, safe projection, and ownership checks; real Laravel interoperability remains pending |
+| Leave balances | Implemented adapter | Strict Laravel mTLS read provider, ERP-calculated Decimal balances, dual-module entitlement, and scope checks; real Laravel interoperability remains pending |
+| Leave request list | Implemented adapter | Strict Laravel mTLS read provider, opaque-cursor paging, page invariants, and scope checks; the frozen Laravel wire contract currently rejects optional status/date filters |
+| Leave request detail | Implemented adapter | Strict Laravel mTLS read provider, owned UUID selector, scope checks, and validated timeline; real Laravel interoperability remains pending |
 | HR database and AI contract | Documented; integration blocked | HR schema documentation exists; an authoritative typed ERP API contract and owner-confirmed module mapping are still required |
 | AI gateway and orchestrator | Planned | Implement before module expansion |
 | Remaining HR Core + Leave read tools | Next | Additional first-release reads |

@@ -1,5 +1,9 @@
 # ERP trust API contract
 
+This trust API resolves identity and snapshot freshness before routing. It is separate from the
+capability-specific Laravel read API, which independently revalidates snapshot and business scope.
+Both use server-owned fixed origins and externally provisioned mTLS contexts.
+
 Step 26 constructs one closed ERP trust client and shares it between trusted resolution and
 authorization-snapshot verification. The externally provisioned TLS context remains deployment
 owned. Readiness proves startup completed, not that the ERP endpoint remains reachable.

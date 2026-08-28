@@ -59,11 +59,14 @@ class GetMyLeaveBalancesHandler:
         if context.employee_id is None:
             raise _LeaveBalancesUnavailableError("employee context is required")
 
-        records = await self.provider.get_my_leave_balances(
-            customer_environment_id=context.customer_environment_id,
-            employee_id=context.employee_id,
-            authorized_legal_entity_ids=context.legal_entity_ids,
-        )
+        if getattr(self.provider, "uses_trusted_context", False):
+            records = await self.provider.get_my_leave_balances(context=context)
+        else:  # Compatibility for pre-contract injected test/legacy providers.
+            records = await self.provider.get_my_leave_balances(  # type: ignore[call-arg]
+                customer_environment_id=context.customer_environment_id,
+                employee_id=context.employee_id,
+                authorized_legal_entity_ids=context.legal_entity_ids,
+            )
 
         seen: set[tuple[str, str, int]] = set()
         for record in records:
@@ -132,17 +135,27 @@ class ListMyLeaveRequestsHandler:
         if context.employee_id is None:
             raise _LeaveRequestsUnavailableError("employee context is required")
 
-        page = await self.provider.list_my_leave_requests(
-            customer_environment_id=context.customer_environment_id,
-            employee_id=context.employee_id,
-            authorized_legal_entity_ids=context.legal_entity_ids,
-            statuses=arguments.statuses,
-            start_from=arguments.start_from,
-            start_to=arguments.start_to,
-            limit=arguments.limit,
-            cursor=arguments.cursor,
-            authorization_snapshot_id=context.authorization_snapshot_id,
-        )
+        if getattr(self.provider, "uses_trusted_context", False):
+            page = await self.provider.list_my_leave_requests(
+                context=context,
+                statuses=arguments.statuses,
+                start_from=arguments.start_from,
+                start_to=arguments.start_to,
+                limit=arguments.limit,
+                cursor=arguments.cursor,
+            )
+        else:  # Compatibility for pre-contract injected test/legacy providers.
+            page = await self.provider.list_my_leave_requests(  # type: ignore[call-arg]
+                customer_environment_id=context.customer_environment_id,
+                employee_id=context.employee_id,
+                authorized_legal_entity_ids=context.legal_entity_ids,
+                authorization_snapshot_id=context.authorization_snapshot_id,
+                statuses=arguments.statuses,
+                start_from=arguments.start_from,
+                start_to=arguments.start_to,
+                limit=arguments.limit,
+                cursor=arguments.cursor,
+            )
 
         if len(page.items) > arguments.limit:
             raise _LeaveRequestsUnavailableError("provider page exceeds requested limit")
@@ -220,12 +233,17 @@ class GetMyLeaveRequestHandler:
         if context.employee_id is None:
             raise _LeaveRequestDetailUnavailableError("employee context is required")
 
-        record = await self.provider.get_my_leave_request(
-            customer_environment_id=context.customer_environment_id,
-            employee_id=context.employee_id,
-            authorized_legal_entity_ids=context.legal_entity_ids,
-            request_id=arguments.request_id,
-        )
+        if getattr(self.provider, "uses_trusted_context", False):
+            record = await self.provider.get_my_leave_request(
+                context=context, request_id=arguments.request_id
+            )
+        else:  # Compatibility for pre-contract injected test/legacy providers.
+            record = await self.provider.get_my_leave_request(  # type: ignore[call-arg]
+                customer_environment_id=context.customer_environment_id,
+                employee_id=context.employee_id,
+                authorized_legal_entity_ids=context.legal_entity_ids,
+                request_id=arguments.request_id,
+            )
         if record is None:
             raise _LeaveRequestDetailUnavailableError("leave request unavailable")
         if record.request_id != arguments.request_id:

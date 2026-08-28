@@ -1,5 +1,9 @@
 # Leave: list my requests
 
+The production provider contract maps this tool only to
+`POST /internal/ai/v1/leave/requests/list-self`. Laravel owns ordering and opaque cursor generation,
+scope binding, expiry, and tamper rejection. Python preserves cursors unchanged.
+
 `list_my_leave_requests` is a read-only employee-self-service tool that returns a paginated safe
 summary of requests belonging to the trusted linked employee. This repository defines the
 contract and uses only synthetic fake providers.

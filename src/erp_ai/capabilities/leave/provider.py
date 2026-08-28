@@ -10,6 +10,7 @@ from erp_ai.capabilities.leave.models import (
     LeaveRequestPageRecord,
     LeaveRequestStatus,
 )
+from erp_ai.context import TrustedRequestContext
 
 
 @runtime_checkable
@@ -19,30 +20,23 @@ class LeaveReadProvider(Protocol):
     async def get_my_leave_balances(
         self,
         *,
-        customer_environment_id: str,
-        employee_id: str,
-        authorized_legal_entity_ids: tuple[str, ...],
+        context: TrustedRequestContext,
     ) -> tuple[LeaveBalanceRecord, ...]: ...
 
     async def list_my_leave_requests(
         self,
         *,
-        customer_environment_id: str,
-        employee_id: str,
-        authorized_legal_entity_ids: tuple[str, ...],
+        context: TrustedRequestContext,
         statuses: tuple[LeaveRequestStatus, ...],
         start_from: date | None,
         start_to: date | None,
         limit: int,
         cursor: str | None,
-        authorization_snapshot_id: str,
     ) -> LeaveRequestPageRecord: ...
 
     async def get_my_leave_request(
         self,
         *,
-        customer_environment_id: str,
-        employee_id: str,
-        authorized_legal_entity_ids: tuple[str, ...],
+        context: TrustedRequestContext,
         request_id: UUID,
     ) -> LeaveRequestDetailRecord | None: ...

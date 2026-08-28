@@ -1,5 +1,9 @@
 # Leave: my balances
 
+The production provider contract maps this tool only to
+`POST /internal/ai/v1/leave/balances/read-self`. Laravel owns customer routing, snapshot
+revalidation, balance business rules, and visibility. Python has no customer-database access.
+
 `get_my_leave_balances` is a read-only employee-self-service capability that returns
 authoritative, ERP-calculated current leave balances. This repository defines only the typed
 contract and uses fake providers in tests.

@@ -1,5 +1,9 @@
 # HR Core: self employee profile
 
+The production provider contract maps this tool only to
+`POST /internal/ai/v1/hr/profile/read-self`. Laravel must revalidate the linked employee,
+permission, purpose, legal scope, and customer database. Step 27 validates only the Python adapter.
+
 `get_my_employee_profile` is the first production capability contract. It is a
 read-only, employee-self-service tool; this repository still provides no real ERP
 transport or employee data source.

@@ -1,5 +1,11 @@
 # Production runtime composition contract
 
+Step 27 leaves core runtime composition provider-neutral. The Laravel package exposes an explicit
+bundle whose handlers and lifecycle must be injected into `ExternalRuntimeBundle`; core runtime
+modules neither import nor construct Laravel adapters. Construction remains I/O-free; Laravel
+contract verification occurs during lifecycle startup. Laravel and customer-database routing
+remain external ERP-team responsibilities.
+
 Step 26 supplies one composition root, `compose_production_runtime`, and no server launcher.
 The core reads no environment variables, `.env` files, configuration files, certificates,
 keys, or secret-manager responses. A deployment-owned launcher must construct an immutable
