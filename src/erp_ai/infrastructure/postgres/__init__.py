@@ -17,6 +17,17 @@ from erp_ai.infrastructure.postgres.knowledge_repository import PostgresKnowledg
 from erp_ai.infrastructure.postgres.knowledge_retrieval import (
     PostgresLexicalKnowledgeRetrievalProvider,
 )
+from erp_ai.infrastructure.postgres.production_rag import (
+    KNOWLEDGE_MIGRATION_CHECKSUMS,
+    KNOWLEDGE_READ_CONTRACT_DIGEST,
+    KNOWLEDGE_READ_CONTRACT_VERSION,
+    PostgresKnowledgeContractVerifier,
+    ProductionKnowledgeConfig,
+    ProductionKnowledgeDatabaseRouter,
+    ProductionKnowledgeRoute,
+    ProductionRagBundle,
+    build_production_rag_bundle,
+)
 from erp_ai.infrastructure.postgres.routing import (
     KnowledgeDatabaseAccess,
     KnowledgeDatabaseRouter,
@@ -28,6 +39,9 @@ from erp_ai.infrastructure.postgres.semantic_retrieval import (
 )
 
 __all__ = [
+    "KNOWLEDGE_MIGRATION_CHECKSUMS",
+    "KNOWLEDGE_READ_CONTRACT_DIGEST",
+    "KNOWLEDGE_READ_CONTRACT_VERSION",
     "EmbeddingMaterializationConflict",
     "HybridRetrievalPolicy",
     "KnowledgeDatabaseAccess",
@@ -35,11 +49,17 @@ __all__ = [
     "KnowledgeDatabaseRouter",
     "PostgresEmbeddingRepository",
     "PostgresHybridKnowledgeRetrievalProvider",
+    "PostgresKnowledgeContractVerifier",
     "PostgresKnowledgeIndexRepository",
     "PostgresLexicalKnowledgeRetrievalProvider",
     "PostgresSemanticKnowledgeRetrievalProvider",
+    "ProductionKnowledgeConfig",
+    "ProductionKnowledgeDatabaseRouter",
+    "ProductionKnowledgeRoute",
+    "ProductionRagBundle",
     "SemanticRetrievalPolicy",
     "StaticKnowledgeDatabaseConfig",
     "StaticKnowledgeDatabaseRouter",
+    "build_production_rag_bundle",
     "reciprocal_rank_fusion",
 ]

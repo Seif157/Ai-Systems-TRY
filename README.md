@@ -1,5 +1,12 @@
 # ERP AI Platform
 
+> Step 28 status: the production PostgreSQL/pgvector RAG read boundary is implemented on its
+> feature branch. It reuses the established exact semantic retrieval algorithm and adds static
+> customer routes, reader-only pools, startup and per-transaction contract checks, and an
+> explicit lifecycle bundle. Exact pgvector 0.8.6 compatibility is tested on PostgreSQL
+> 15–18. Production ingestion operations, real approved-corpus quality evaluation, operational
+> certification, and embedding-provider privacy approval remain external prerequisites.
+
 > **Step 27 status:** a frozen capability-specific Laravel ERP read API contract and strict
 > fixed-origin mTLS Python client are implemented for HR Core and Leave. Only synthetic
 > Python-side behavior is validated. No Laravel implementation, real ERP deployment, or joint

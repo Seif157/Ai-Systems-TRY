@@ -6,10 +6,11 @@ trusted startup configuration maps canonical customer IDs to explicit reader, pu
 migration DSNs. The database's singleton identity must match both the requested customer and the
 selected route before any runtime access.
 
-Local and CI tests use PostgreSQL 17 with `pgvector/pgvector:0.8.6-pg17-bookworm`, pinned to
-`sha256:cf134a767f474095eeba57e0117be8e568e011a63f33fbf252f14c9b760f8e6f`. The compatibility
-contract accepts PostgreSQL majors 15 through 18 and pgvector 0.8.6 or newer. The exact production
-PostgreSQL version, container base, libpq linkage, and package strategy remain deployment choices.
+Local tests default to PostgreSQL 17 with `pgvector/pgvector:0.8.6-pg17-bookworm`, pinned to
+`sha256:cf134a767f474095eeba57e0117be8e568e011a63f33fbf252f14c9b760f8e6f`. CI exercises exact
+digest-pinned pgvector 0.8.6 images across PostgreSQL majors 15 through 18; the production read
+contract requires pgvector exactly 0.8.6. The exact production PostgreSQL version within that
+range, container base, libpq linkage, and package strategy remain deployment choices.
 Windows development/CI uses `psycopg-binary`; a production image may use `psycopg[c]` linked to a
 managed system libpq.
 

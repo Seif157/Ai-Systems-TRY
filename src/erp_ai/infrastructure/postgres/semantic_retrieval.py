@@ -3,8 +3,9 @@
 import asyncio
 import hashlib
 import json
+import math
 from decimal import Decimal
-from typing import Any, cast
+from typing import Any, Protocol, cast
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
@@ -22,6 +23,37 @@ from erp_ai.knowledge.embeddings import (
     EmbeddingProfile,
     EmbeddingProvider,
 )
+
+SEMANTIC_NAMESPACE = "hr"
+SEMANTIC_MAXIMUM_RESULTS = 5
+SEMANTIC_MAXIMUM_TOTAL_CONTENT_CHARACTERS = 12_000
+SEMANTIC_QUERY_PARAMETER_ORDER = (
+    "customer_environment_id",
+    "namespace",
+    "active_generation_id",
+    "embedding_profile_sha256",
+    "query_vector",
+    "embedding_profile_sha256",
+    "customer_environment_id",
+    "active_generation_id",
+    "namespace",
+    "customer_environment_id",
+    "enabled_modules",
+    "permission_codes",
+    "purpose",
+    "authorized_legal_entity_ids",
+    "effective_at",
+    "effective_at",
+    "allowed_data_classifications",
+    "minimum_relevance_score",
+    "maximum_results",
+)
+
+
+class SemanticTransactionVerifier(Protocol):
+    async def verify(
+        self, connection: Any, request: KnowledgeRetrievalRequest, profile: EmbeddingProfile
+    ) -> None: ...
 
 
 class SemanticRetrievalPolicy(BaseModel):
@@ -57,6 +89,7 @@ WITH ready_set AS (
       (customer_environment_id,namespace,generation_id)
     WHERE s.customer_environment_id=%s AND s.namespace=%s AND s.generation_id=%s
       AND s.profile_sha256=%s AND s.status='ready'
+      AND g.status='active' AND s.generation_digest=g.generation_digest
       AND s.embedding_count=g.chunk_count
       AND s.embedding_count=(
           SELECT count(*) FROM erp_ai_knowledge.chunk_embeddings complete
@@ -96,9 +129,13 @@ SELECT chunk_id,document_id,citation_id,namespace,source_type,
        document_customer_environment_id,required_modules_all,required_permissions_all,
        allowed_purposes,legal_entity_ids,data_classification,language,title,section,
        document_version,effective_from,effective_to,content,
-       relevance_score
+       relevance_score,cosine_distance
 FROM scored
-WHERE relevance_score >= %s
+WHERE cosine_distance >= 0 AND cosine_distance <= 2
+  AND cosine_distance NOT IN ('NaN'::double precision,
+                              'Infinity'::double precision,
+                              '-Infinity'::double precision)
+  AND relevance_score >= %s
 ORDER BY cosine_distance ASC,chunk_id ASC
 LIMIT %s
 """
@@ -108,8 +145,25 @@ def _vector_literal(values: tuple[float, ...]) -> str:
     return "[" + ",".join(format(value, ".9g") for value in values) + "]"
 
 
+def _distance_to_score(distance: object) -> float:
+    if isinstance(distance, bool) or not isinstance(distance, (int, float, Decimal)):
+        raise KnowledgeStorageUnavailable("semantic knowledge retrieval is unavailable")
+    converted = float(distance)
+    if not math.isfinite(converted) or not 0 <= converted <= 2:
+        raise KnowledgeStorageUnavailable("semantic knowledge retrieval is unavailable")
+    return 1 - converted / 2
+
+
 class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integration boundary
-    __slots__ = ("_customer", "_policy", "_profile", "_provider", "_router")
+    __slots__ = (
+        "_customer",
+        "_policy",
+        "_profile",
+        "_provider",
+        "_router",
+        "_timeouts",
+        "_transaction_verifier",
+    )
 
     def __init__(
         self,
@@ -118,16 +172,31 @@ class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integrat
         profile: EmbeddingProfile,
         provider: EmbeddingProvider,
         policy: SemanticRetrievalPolicy,
+        transaction_timeouts: tuple[int, int, int] | None = None,
+        transaction_verifier: SemanticTransactionVerifier | None = None,
     ) -> None:
-        if policy.namespace != "hr" or policy.embedding_profile_sha256 != profile.profile_sha256:
+        if (
+            policy.namespace != SEMANTIC_NAMESPACE
+            or policy.embedding_profile_sha256 != profile.profile_sha256
+        ):
             raise ValueError("semantic retrieval policy is incompatible")
         self._router = router
         self._customer = customer_environment_id
         self._profile = profile
         self._provider = provider
         self._policy = policy
+        self._timeouts = transaction_timeouts
+        self._transaction_verifier = transaction_verifier
 
     async def retrieve(self, request: KnowledgeRetrievalRequest) -> tuple[KnowledgeMatch, ...]:
+        try:
+            request = KnowledgeRetrievalRequest.model_validate(
+                request.model_dump(mode="python"), strict=True
+            )
+        except Exception:
+            raise KnowledgeStorageUnavailable(
+                "semantic knowledge retrieval is unavailable"
+            ) from None
         if request.customer_environment_id != self._customer:
             raise KnowledgeDatabaseIdentityError("knowledge database identity mismatch")
         try:
@@ -140,6 +209,9 @@ class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integrat
             )
             result = await self._provider.embed(
                 EmbeddingBatchRequest(profile=self._profile, inputs=(query_input,))
+            )
+            result = type(result).model_validate(
+                result.model_dump(mode="python", exclude_computed_fields=True), strict=True
             )
             if result.profile_sha256 != self._profile.profile_sha256 or len(result.vectors) != 1:
                 raise KnowledgeStorageUnavailable("semantic query embedding is unavailable")
@@ -154,10 +226,26 @@ class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integrat
                 await connection.execute(
                     "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY"
                 )
+                await connection.execute("SELECT set_config('search_path', 'pg_catalog', true)")
+                if self._timeouts is not None:
+                    for setting, value in zip(
+                        (
+                            "statement_timeout",
+                            "lock_timeout",
+                            "idle_in_transaction_session_timeout",
+                        ),
+                        self._timeouts,
+                        strict=True,
+                    ):
+                        await connection.execute(
+                            "SELECT set_config(%s, %s, true)", (setting, str(value))
+                        )
                 await connection.execute(
                     "SELECT set_config('erp_ai.customer_environment_id', %s, true)",
                     (self._customer,),
                 )
+                if self._transaction_verifier is not None:
+                    await self._transaction_verifier.verify(connection, request, self._profile)
                 identity = await (
                     await connection.execute(
                         """SELECT customer_environment_id FROM erp_ai_knowledge.database_identity
@@ -201,7 +289,7 @@ class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integrat
                         ),
                     )
                 ).fetchall()
-                return tuple(self._match(row) for row in rows)
+                return self._validated_matches(rows)
         except asyncio.CancelledError:
             raise
         except KnowledgeDatabaseIdentityError:
@@ -215,7 +303,12 @@ class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integrat
 
     @staticmethod
     def _match(row: tuple[Any, ...]) -> KnowledgeMatch:
-        rank = Decimal(str(row[18]))
+        score = _distance_to_score(row[19])
+        stored_score = float(Decimal(str(row[18])))
+        if not math.isfinite(stored_score) or not math.isclose(
+            stored_score, score, rel_tol=0, abs_tol=1e-12
+        ):
+            raise KnowledgeStorageUnavailable("semantic knowledge retrieval is unavailable")
         return KnowledgeMatch(
             chunk_id=str(row[0]),
             document_id=str(row[1]),
@@ -235,5 +328,21 @@ class PostgresSemanticKnowledgeRetrievalProvider:  # pragma: no cover - integrat
             effective_from=cast(Any, row[15]),
             effective_to=cast(Any, row[16]),
             content=cast(str, row[17]),
-            relevance_score=float(rank),
+            relevance_score=score,
         )
+
+    @classmethod
+    def _validated_matches(cls, rows: list[tuple[Any, ...]]) -> tuple[KnowledgeMatch, ...]:
+        matches = tuple(cls._match(row) for row in rows)
+        if len(matches) > SEMANTIC_MAXIMUM_RESULTS:
+            raise KnowledgeStorageUnavailable("semantic knowledge retrieval is unavailable")
+        if len({item.chunk_id for item in matches}) != len(matches):
+            raise KnowledgeStorageUnavailable("semantic knowledge retrieval is unavailable")
+        if len({item.citation_id for item in matches}) != len(matches):
+            raise KnowledgeStorageUnavailable("semantic knowledge retrieval is unavailable")
+        ordered = tuple(sorted(matches, key=lambda item: (-item.relevance_score, item.chunk_id)))
+        if matches != ordered:
+            raise KnowledgeStorageUnavailable("semantic knowledge retrieval is unavailable")
+        if sum(len(item.content) for item in matches) > SEMANTIC_MAXIMUM_TOTAL_CONTENT_CHARACTERS:
+            raise KnowledgeStorageUnavailable("semantic knowledge retrieval is unavailable")
+        return matches

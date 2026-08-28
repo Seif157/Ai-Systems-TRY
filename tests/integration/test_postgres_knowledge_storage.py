@@ -14,16 +14,22 @@ from psycopg.conninfo import make_conninfo
 from psycopg.errors import DuplicateObject
 
 from erp_ai.infrastructure.postgres import (
+    KNOWLEDGE_READ_CONTRACT_DIGEST,
+    KNOWLEDGE_READ_CONTRACT_VERSION,
     EmbeddingMaterializationConflict,
     KnowledgeDatabaseAccess,
     KnowledgeDatabaseRouteConfig,
     PostgresEmbeddingRepository,
+    PostgresKnowledgeContractVerifier,
     PostgresKnowledgeIndexRepository,
     PostgresLexicalKnowledgeRetrievalProvider,
     PostgresSemanticKnowledgeRetrievalProvider,
+    ProductionKnowledgeConfig,
+    ProductionKnowledgeRoute,
     SemanticRetrievalPolicy,
     StaticKnowledgeDatabaseConfig,
     StaticKnowledgeDatabaseRouter,
+    build_production_rag_bundle,
 )
 from erp_ai.infrastructure.postgres.errors import (
     KnowledgeDatabaseIdentityError,
@@ -152,11 +158,14 @@ async def _provision(
                     "(SELECT extversion FROM pg_extension WHERE extname='vector')"
                 )
             ).fetchone()
-            assert versions is not None and versions[0] // 10_000 == 17
+            assert versions is not None and versions[0] // 10_000 in (15, 16, 17, 18)
             assert versions[1] == "0.8.6"
             await connection.commit()
             await provision_database_identity(connection, customer)
             await provision_database_identity(connection, customer)
+            await grant_runtime_roles(
+                connection, reader_role=READER_ROLE, publisher_role=PUBLISHER_ROLE
+            )
             await grant_runtime_roles(
                 connection, reader_role=READER_ROLE, publisher_role=PUBLISHER_ROLE
             )
@@ -688,3 +697,111 @@ async def _exercise_semantic_storage() -> None:
 
 def test_postgres_embedding_materialization_and_exact_semantic_retrieval() -> None:
     _run(_exercise_semantic_storage())
+
+
+async def _exercise_production_reader_isolation() -> None:
+    administrative_router = await _provision()
+    embedding_profile = profile()
+    embedder = MechanicalEmbeddingProvider()
+    requests: dict[str, KnowledgeRetrievalRequest] = {}
+    publications: dict[str, Any] = {}
+    try:
+        for customer, _database in CUSTOMERS:
+            publisher = KnowledgeIndexPublisher(
+                PostgresKnowledgeIndexRepository(administrative_router, customer)
+            )
+            publication = await publisher.publish(
+                context(operation=f"production-{customer}", customer=customer),
+                (bundle(content="identical synthetic authorized policy"),),
+                expected_active_generation_id=None,
+            )
+            publications[customer] = publication
+            repository = PostgresEmbeddingRepository(administrative_router, customer)
+            source = await repository.load_generation_source(
+                publication.scope, publication.generation_id
+            )
+            prepared = await EmbeddingMaterializer(embedder).materialize(source, embedding_profile)
+            await repository.persist(
+                prepared,
+                operation_id=f"embedding-{customer}",
+                request_id=f"request-{customer}",
+                actor_id="synthetic-admin",
+            )
+            requests[customer] = KnowledgeRetrievalRequest(
+                namespace="hr",
+                query="synthetic policy",
+                maximum_results=5,
+                customer_environment_id=customer,
+                enabled_modules=("hr_core",),
+                permission_codes=("hr.knowledge.read",),
+                roles=("employee",),
+                authorized_legal_entity_ids=("entity-a",),
+                purpose="employee_self_service",
+                locale="en",
+                effective_at=datetime.now(UTC),
+            )
+    finally:
+        await administrative_router.close()
+
+    routes = tuple(
+        ProductionKnowledgeRoute(
+            customer_environment_id=customer,
+            expected_database_name=database,
+            expected_database_identity=customer,
+            runtime_dsn=_database_dsn(database, role=READER_ROLE, password=PASSWORD),
+            expected_runtime_role=READER_ROLE,
+            expected_extension_owner="postgres",
+            knowledge_contract_version=KNOWLEDGE_READ_CONTRACT_VERSION,
+            knowledge_contract_digest=KNOWLEDGE_READ_CONTRACT_DIGEST,
+            embedding_model_id=embedding_profile.model_id,
+            embedding_model_version=embedding_profile.model_revision,
+            embedding_provider_id=embedding_profile.provider_id,
+            embedding_profile_sha256=embedding_profile.profile_sha256,
+            embedding_dimensions=embedding_profile.dimensions,
+            expected_generation_id=publications[customer].generation_id,
+            expected_generation_digest=publications[customer].generation_digest,
+        )
+        for customer, database in CUSTOMERS
+    )
+    config = ProductionKnowledgeConfig(routes=routes)
+    for customer, _database in CUSTOMERS:
+        production = build_production_rag_bundle(
+            config=config,
+            customer_environment_id=customer,
+            embedding_profile=embedding_profile,
+            embedding_provider=embedder,
+            retrieval_policy=_semantic_policy(embedding_profile),
+            verifier=PostgresKnowledgeContractVerifier(),
+        )
+        try:
+            await production.router.open()
+            matches = await production.provider.retrieve(requests[customer])
+            assert len(matches) == 1
+            if customer == "customer-a":
+                async with await psycopg.AsyncConnection.connect(
+                    _database_dsn("erp_ai_test_a")
+                ) as admin:
+                    await admin.execute(
+                        """UPDATE erp_ai_knowledge.database_identity
+                        SET customer_environment_id='drifted-customer' WHERE singleton=true"""
+                    )
+                    await admin.commit()
+                    with pytest.raises(KnowledgeStorageUnavailable):
+                        await production.provider.retrieve(requests[customer])
+                    await admin.execute(
+                        """UPDATE erp_ai_knowledge.database_identity
+                        SET customer_environment_id='customer-a' WHERE singleton=true"""
+                    )
+                    await admin.commit()
+            with pytest.raises(KnowledgeDatabaseIdentityError):
+                await production.provider.retrieve(
+                    requests["customer-b" if customer == "customer-a" else "customer-a"]
+                )
+            with pytest.raises(KnowledgeStorageUnavailable):
+                production.router.pool("unknown", KnowledgeDatabaseAccess.READER)
+        finally:
+            await production.router.close()
+
+
+def test_production_reader_verifies_and_isolates_two_physical_databases() -> None:
+    _run(_exercise_production_reader_isolation())

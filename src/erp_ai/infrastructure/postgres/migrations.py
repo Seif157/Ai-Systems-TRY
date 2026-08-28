@@ -14,6 +14,7 @@ MIGRATIONS = (
     "0001_knowledge_schema.sql",
     "0002_knowledge_security.sql",
     "0003_knowledge_embeddings.sql",
+    "0004_force_database_identity_rls.sql",
 )
 SCHEMA_CONTRACT_VERSION = 1
 _MIGRATION_LOCK_ID = 7_301_130_013
@@ -97,6 +98,10 @@ async def provision_database_identity(  # pragma: no cover - integration boundar
 ) -> None:
     try:
         async with connection.transaction():
+            await connection.execute(
+                "SELECT set_config('erp_ai.customer_environment_id', %s, true)",
+                (customer_environment_id,),
+            )
             row = await (
                 await connection.execute(
                     """SELECT customer_environment_id
@@ -150,6 +155,12 @@ async def grant_runtime_roles(  # pragma: no cover - integration boundary
                     "erp_ai_knowledge.documents, erp_ai_knowledge.chunks, "
                     "erp_ai_knowledge.embedding_profiles, erp_ai_knowledge.embedding_sets, "
                     "erp_ai_knowledge.chunk_embeddings TO {}"
+                ).format(sql.Identifier(reader_role))
+            )
+            await connection.execute(
+                sql.SQL(
+                    "GRANT SELECT (migration_name, sha256) "
+                    "ON erp_ai_knowledge.schema_migrations TO {}"
                 ).format(sql.Identifier(reader_role))
             )
             await connection.execute(

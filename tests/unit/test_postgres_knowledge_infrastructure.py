@@ -79,6 +79,7 @@ def test_only_known_packaged_migrations_are_readable() -> None:
         "0001_knowledge_schema.sql",
         "0002_knowledge_security.sql",
         "0003_knowledge_embeddings.sql",
+        "0004_force_database_identity_rls.sql",
     )
     for name in MIGRATIONS:
         raw = _migration_bytes(name)

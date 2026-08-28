@@ -47,6 +47,9 @@ packages = ["src/erp_ai"]
 "docs/contracts/laravel-erp-read-api.md" = "share/doc/erp-ai-platform/laravel-erp-read-api.md"
 "docs/contracts/laravel-erp-read-provider.md" = "share/doc/erp-ai-platform/laravel-erp-read-provider.md"
 "docs/deployment/laravel-erp-read-integration.md" = "share/doc/erp-ai-platform/deployment/laravel-erp-read-integration.md"
+"docs/contracts/production-rag-provider.md" = "share/doc/erp-ai-platform/production-rag-provider.md"
+"docs/contracts/customer-knowledge-storage.md" = "share/doc/erp-ai-platform/customer-knowledge-storage.md"
+"docs/deployment/production-rag-provider.md" = "share/doc/erp-ai-platform/deployment/production-rag-provider.md"
 
 [tool.hatch.build.targets.sdist]
 exclude = [
