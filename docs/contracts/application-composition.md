@@ -1,5 +1,9 @@
 # Provider-neutral application composition
 
+OpenAI project selection and privacy authorization occur behind the provider-neutral model
+boundary using trusted context injected by this application layer. No project, credential,
+model, endpoint, classification, or privacy mode is accepted from `PublicChatRequest`.
+
 The production binding is defined by `production-runtime-composition.md`. It constructs the
 trusted application only after exact registry/handler and route-catalog validation, shares one
 application audit sink with transport, and performs no message-based route inference.

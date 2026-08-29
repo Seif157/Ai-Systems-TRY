@@ -1,5 +1,9 @@
 # Production runtime composition contract
 
+The core runtime remains provider-neutral. A deployment may supply the direct OpenAI bundle's
+model provider and lifecycle lease, but `erp_ai.runtime` neither imports nor constructs OpenAI.
+Customer-bound embedding providers are composed with each production RAG route externally.
+
 Step 27 leaves core runtime composition provider-neutral. The Laravel package exposes an explicit
 bundle whose handlers and lifecycle must be injected into `ExternalRuntimeBundle`; core runtime
 modules neither import nor construct Laravel adapters. Construction remains I/O-free; Laravel

@@ -1,5 +1,9 @@
 # Forced-tool routing contract
 
+The direct OpenAI Responses adapter maps `required_exact_tool` to exactly one strict function
+schema and a named forced choice. General and final turns expose no tools and explicitly disable
+tool use. Provider selection never changes gateway authorization or exact-route grounding.
+
 Step 21 defines an immutable, server-owned `AgentRoutingPolicy`. It is supplied separately from
 `PublicChatRequest`; typed models cannot prove that the future resolver supplying it is trusted.
 The production ERP/UI integration must select it explicitly. Keyword routing, model-based intent

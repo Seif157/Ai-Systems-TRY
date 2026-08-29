@@ -50,6 +50,9 @@ packages = ["src/erp_ai"]
 "docs/contracts/production-rag-provider.md" = "share/doc/erp-ai-platform/production-rag-provider.md"
 "docs/contracts/customer-knowledge-storage.md" = "share/doc/erp-ai-platform/customer-knowledge-storage.md"
 "docs/deployment/production-rag-provider.md" = "share/doc/erp-ai-platform/deployment/production-rag-provider.md"
+"docs/contracts/openai-production-provider.md" = "share/doc/erp-ai-platform/openai-production-provider.md"
+"docs/contracts/model-data-privacy.md" = "share/doc/erp-ai-platform/model-data-privacy.md"
+"docs/deployment/openai-production-provider.md" = "share/doc/erp-ai-platform/deployment/openai-production-provider.md"
 
 [tool.hatch.build.targets.sdist]
 exclude = [

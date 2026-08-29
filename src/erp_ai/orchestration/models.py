@@ -17,7 +17,7 @@ from pydantic import (
     model_validator,
 )
 
-from erp_ai.capabilities.models import Code, Version
+from erp_ai.capabilities.models import Code, DataClassification, Version
 from erp_ai.context.models import Identifier
 from erp_ai.knowledge import KnowledgeSourceType
 from erp_ai.knowledge.models import DisplayText, LanguageCode
@@ -30,7 +30,12 @@ Answer = Annotated[
 ]
 CallId = Annotated[
     str,
-    StringConstraints(strict=True, strip_whitespace=True, min_length=1, max_length=128),
+    StringConstraints(
+        strict=True,
+        min_length=1,
+        max_length=128,
+        pattern=r"^[^\s\x00-\x1f\x7f]+$",
+    ),
 ]
 SafeMessage = Annotated[str, StringConstraints(strict=True, min_length=1, max_length=300)]
 MAXIMUM_TOOL_ARGUMENT_BYTES = 16_384
@@ -252,7 +257,7 @@ class ModelToolDefinition(BaseModel):
 class ToolResultMessage(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True, hide_input_in_errors=True)
 
-    call_id: CallId
+    call_id: CallId = Field(repr=False)
     tool_name: Code
     result: PublicToolSuccess | PublicToolFailure
     content_trust: Literal["untrusted_tool_result"] = "untrusted_tool_result"
@@ -280,6 +285,9 @@ class ModelTurnRequest(BaseModel):
     tool_selection: ModelToolSelection = Field(repr=False)
     interactions: tuple["ModelToolInteraction", ...] = Field(repr=False)
     turn_number: int = Field(strict=True, ge=1)
+    routing_customer_environment_id: Identifier = Field(repr=False)
+    maximum_data_classification: DataClassification = Field(repr=False)
+    purpose: Code = Field(repr=False)
 
     @model_validator(mode="after")
     def validate_interactions(self) -> "ModelTurnRequest":
@@ -357,7 +365,7 @@ class ModelToolCall(BaseModel):
     )
 
     response_type: Literal["tool_call"] = "tool_call"
-    call_id: CallId
+    call_id: CallId = Field(repr=False)
     tool_name: Code
     version: Version
     arguments_json: str = Field(strict=True, repr=False)

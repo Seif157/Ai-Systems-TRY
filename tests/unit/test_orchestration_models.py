@@ -5,6 +5,7 @@ from types import MappingProxyType
 import pytest
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from erp_ai.capabilities import DataClassification
 from erp_ai.knowledge import KnowledgeSourceType
 from erp_ai.orchestration import (
     AgentErrorCode,
@@ -82,7 +83,7 @@ def test_public_citation_preserves_exact_document_version() -> None:
 
 def test_model_tool_arguments_and_schema_are_recursively_immutable_json() -> None:
     call = ModelToolCall.from_arguments(
-        call_id=" call_1 ",
+        call_id="call_1",
         tool_name="get_profile",
         version="1.0.0",
         arguments={"nested": {"values": [1, True, None]}},
@@ -108,6 +109,14 @@ def test_model_tool_arguments_and_schema_are_recursively_immutable_json() -> Non
             version="1.0.0",
             arguments={"bad": object()},
         )
+    for invalid_call_id in (" call_1", "call_1 ", "call 1", "call\n1", "call\x001"):
+        with pytest.raises(ValidationError):
+            ModelToolCall.from_arguments(
+                call_id=invalid_call_id,
+                tool_name="get_profile",
+                version="1.0.0",
+                arguments={},
+            )
 
 
 def test_answers_limits_and_unknown_fields_are_validated() -> None:
@@ -209,7 +218,29 @@ def turn(*interactions: ModelToolInteraction) -> ModelTurnRequest:
         tool_selection=ModelToolSelection(mode=ToolSelectionMode.FINAL_ONLY),
         interactions=interactions,
         turn_number=2,
+        routing_customer_environment_id="synthetic-customer",
+        maximum_data_classification=DataClassification.RESTRICTED,
+        purpose="synthetic_test",
     )
+
+
+def test_final_turn_rejects_a_failed_tool_interaction() -> None:
+    valid = interaction("call_failed")
+    failed = ModelToolInteraction(
+        assistant_call=valid.assistant_call,
+        tool_result=ToolResultMessage(
+            call_id="call_failed",
+            tool_name=valid.assistant_call.tool_name,
+            result=PublicToolFailure(
+                tool_name=valid.assistant_call.tool_name,
+                version=valid.assistant_call.version,
+                safe_error_code=ToolErrorCode.TOOL_UNAVAILABLE,
+                safe_message="Unavailable.",
+            ),
+        ),
+    )
+    with pytest.raises(ValidationError, match="successful"):
+        turn(failed)
 
 
 def test_exact_argument_json_is_preserved_without_normalization() -> None:

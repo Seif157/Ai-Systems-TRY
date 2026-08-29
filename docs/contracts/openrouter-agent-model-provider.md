@@ -1,5 +1,9 @@
 # OpenRouter agent model provider contract
 
+This adapter remains permanently `synthetic_test_only`. Production OpenAI traffic uses the
+separate direct official-API contract; no OpenRouter configuration or credential is accepted by
+that boundary.
+
 `OpenRouterAgentModelProvider` is a generic implementation of the provider-neutral
 `AgentModelProvider` Protocol with one certified, immutable profile:
 

@@ -1,5 +1,9 @@
 # Deploying the production composition root
 
+Direct OpenAI remains an externally supplied provider lifecycle. Production composition must
+bind the approved customer/project and attestation catalogs without adding environment readers
+or OpenAI imports to the core runtime.
+
 Step 26 intentionally provides no Uvicorn process, environment reader, file loader, certificate
 loader, secret-manager adapter, migration runner, or production provider. A future platform
 launcher must obtain secrets outside the core, create certificate-verifying `SSLContext` objects,

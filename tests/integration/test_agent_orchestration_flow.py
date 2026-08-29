@@ -390,7 +390,7 @@ def test_authorized_catalog_contains_schemas_but_no_governance_or_context() -> N
     execute(orchestrator, ctx=context(modules=("hr_core",), permissions=("hr.profile.read_self",)))
     turn = model.requests[0]
     assert turn.tools == ()
-    serialized = repr(turn.model_dump())
+    serialized = repr(turn)
     for forbidden in (
         "customer_a",
         "user_a",
@@ -398,7 +398,6 @@ def test_authorized_catalog_contains_schemas_but_no_governance_or_context() -> N
         "snapshot_a",
         "denial",
         "audit_action",
-        "data_classification",
         "required_modules",
         "required_permissions",
     ):

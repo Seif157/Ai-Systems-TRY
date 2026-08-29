@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass, field
 
 from erp_ai.api import PublicChatRequest
-from erp_ai.capabilities import CapabilityRegistry, evaluate_capability_access
+from erp_ai.capabilities import CapabilityRegistry, DataClassification, evaluate_capability_access
 from erp_ai.capabilities.hr_knowledge import SearchHrKnowledgeOutput
 from erp_ai.context import TrustedRequestContext
 from erp_ai.orchestration.audit import (
@@ -142,6 +142,7 @@ class AgentOrchestrator:
             )
         if routing.mode is AgentRouteMode.GENERAL_ONLY:
             tools: tuple[ModelToolDefinition, ...] = ()
+            maximum_data_classification = DataClassification.RESTRICTED
         else:
             tools = tuple(
                 tool
@@ -152,6 +153,26 @@ class AgentOrchestrator:
                 return await self._finish_failure(
                     context, AgentErrorCode.INVALID_MODEL_RESPONSE, "route_not_authorized"
                 )
+            matching_descriptors = tuple(
+                tool
+                for manifest in self.registry.manifests
+                for tool in manifest.tools
+                if tool.tool_name == routing.tool_name and tool.version == routing.version
+            )
+            if len(matching_descriptors) != 1:  # pragma: no cover - registry invariant
+                return await self._finish_failure(
+                    context, AgentErrorCode.INVALID_MODEL_RESPONSE, "route_not_authorized"
+                )
+            classification_order = {
+                DataClassification.PUBLIC: 0,
+                DataClassification.INTERNAL: 1,
+                DataClassification.RESTRICTED: 2,
+                DataClassification.HIGHLY_RESTRICTED: 3,
+            }
+            maximum_data_classification = max(
+                (DataClassification.RESTRICTED, matching_descriptors[0].data_classification),
+                key=classification_order.__getitem__,
+            )
             if self.limits.maximum_tool_calls < 1 or self.limits.maximum_model_turns < 2:
                 return await self._finish_failure(
                     context, AgentErrorCode.AGENT_LIMIT_REACHED, "route_resource_limit_reached"
@@ -188,6 +209,9 @@ class AgentOrchestrator:
                 tool_selection=selection,
                 interactions=transcript,
                 turn_number=turn_number,
+                routing_customer_environment_id=context.customer_environment_id,
+                maximum_data_classification=maximum_data_classification,
+                purpose=context.purpose,
             )
             try:
                 model_response: object = await self.model_provider.complete_turn(turn)

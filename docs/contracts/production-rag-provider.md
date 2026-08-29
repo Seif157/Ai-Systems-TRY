@@ -1,5 +1,9 @@
 # Production RAG provider contract
 
+When the direct OpenAI embedding adapter is selected, its static customer route, exact model,
+deployment revision, dimension, purpose, and ZDR attestation must match the frozen publication
+profile. The API model field does not prove the deployment-owned embedding revision.
+
 The production provider reuses `KnowledgeRetrievalProvider`, the frozen knowledge models,
 the injected embedding protocol, and the established exact pgvector cosine query. It does
 not generate answers, rerank results, fall back to lexical search, or mutate knowledge.

@@ -1,5 +1,8 @@
 # Internal ERP HTTP transport contract
 
+The internal transport never accepts OpenAI project, model, credential, endpoint, privacy,
+classification, or tool-policy controls. Those remain trusted server-side composition values.
+
 The inbound ERP-to-AI transport is distinct from the outbound Laravel read client. Neither exposes
 public fields for origins, certificates, database routing, model selection, or tool policy.
 

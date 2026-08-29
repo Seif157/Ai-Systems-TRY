@@ -1,5 +1,8 @@
 # Deploying the internal ERP HTTP transport
 
+Do not place OpenAI credentials, project identifiers, model selectors, or privacy controls in
+the inbound ERP transport configuration or request body.
+
 Construct the FastAPI application only through `create_internal_http_app`. Supply the exact host
 allowlist, HTTPS policy, bounded limits, production authenticator, request-ID factory, trusted
 application, mandatory application audit sink, and lifecycle owner explicitly. There is no global

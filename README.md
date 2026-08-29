@@ -1,5 +1,11 @@
 # ERP AI Platform
 
+> Step 29 status: a direct, fixed-origin OpenAI Responses and Embeddings provider is under
+> implementation on its feature branch. It requires static per-customer project routing,
+> deployment-attested Zero Data Retention, restricted-data minimization, exact model identities,
+> and explicit lifecycle ownership. It is not enabled in production; no live OpenAI call or
+> privacy/account verification has been performed.
+
 > Step 28 status: the production PostgreSQL/pgvector RAG read boundary is implemented on its
 > feature branch. It reuses the established exact semantic retrieval algorithm and adds static
 > customer routes, reader-only pools, startup and per-transaction contract checks, and an

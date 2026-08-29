@@ -4,6 +4,7 @@ import os
 import pytest
 from pydantic import BaseModel, ConfigDict, SecretStr
 
+from erp_ai.capabilities import DataClassification
 from erp_ai.infrastructure.openrouter import (
     OpenRouterAgentModelProvider,
     OpenRouterAgentModelProviderConfig,
@@ -79,6 +80,9 @@ def test_live_synthetic_forced_call_and_state_free_continuation() -> None:
             tool_selection=selection,
             interactions=interactions,
             turn_number=number,
+            routing_customer_environment_id="synthetic-customer",
+            maximum_data_classification=DataClassification.RESTRICTED,
+            purpose="synthetic_test",
         )
 
     async def exercise() -> None:

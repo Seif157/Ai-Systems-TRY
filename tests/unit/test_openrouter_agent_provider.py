@@ -9,6 +9,7 @@ import pytest
 from pydantic import BaseModel, ConfigDict, SecretStr, ValidationError
 
 from erp_ai.api import PublicChatRequest
+from erp_ai.capabilities import DataClassification
 from erp_ai.infrastructure.openrouter import (
     NORTH_MINI_CODE_SYNTHETIC_PROFILE,
     OpenRouterAgentModelProvider,
@@ -92,6 +93,9 @@ def turn(
         tool_selection=selection,
         interactions=interactions,
         turn_number=number,
+        routing_customer_environment_id="synthetic-customer",
+        maximum_data_classification=DataClassification.RESTRICTED,
+        purpose="synthetic_test",
     )
 
 

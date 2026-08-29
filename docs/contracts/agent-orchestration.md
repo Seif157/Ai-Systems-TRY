@@ -1,5 +1,10 @@
 # Agent orchestration contract
 
+Provider-neutral model turns now carry repr-hidden, server-owned customer routing,
+maximum-data-classification, and purpose fields. They are not public or model-visible. The
+orchestrator treats user text as at least restricted and may raise classification from the exact
+authorized tool descriptor; model output cannot lower it.
+
 Step 26 injects the model provider and its mandatory lifecycle; it does not construct or approve a
 provider. Provider approval remains a deployment-owner responsibility. The exact trusted route is
 validated before readiness and public message content cannot select it.

@@ -4,6 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from erp_ai.api import PublicChatRequest
+from erp_ai.capabilities import DataClassification
 from erp_ai.orchestration import (
     AgentRouteMode,
     AgentRoutingPolicy,
@@ -77,6 +78,9 @@ def test_required_exact_selection_requires_one_matching_tool() -> None:
         tool_selection=selection,
         interactions=(),
         turn_number=1,
+        routing_customer_environment_id="synthetic-customer",
+        maximum_data_classification=DataClassification.RESTRICTED,
+        purpose="synthetic_test",
     )
     assert request.tools == (definition(),)
     with pytest.raises(ValidationError):
@@ -96,6 +100,9 @@ def test_no_tools_selection_rejects_exposed_catalog() -> None:
             tool_selection=ModelToolSelection(mode=ToolSelectionMode.NO_TOOLS),
             interactions=(),
             turn_number=1,
+            routing_customer_environment_id="synthetic-customer",
+            maximum_data_classification=DataClassification.RESTRICTED,
+            purpose="synthetic_test",
         )
 
 

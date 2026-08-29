@@ -23,7 +23,7 @@ def test_public_chat_results_are_explicit_allowlists() -> None:
     }
 
 
-def test_model_turn_and_tool_result_roles_exclude_trusted_context() -> None:
+def test_model_turn_carries_only_minimum_repr_hidden_provider_routing_context() -> None:
     assert set(ModelTurnRequest.model_fields) == {
         "policy_instructions",
         "user_message",
@@ -32,6 +32,9 @@ def test_model_turn_and_tool_result_roles_exclude_trusted_context() -> None:
         "tool_selection",
         "interactions",
         "turn_number",
+        "routing_customer_environment_id",
+        "maximum_data_classification",
+        "purpose",
     }
     assert set(ToolResultMessage.model_fields) == {
         "call_id",
@@ -55,6 +58,12 @@ def test_model_turn_and_tool_result_roles_exclude_trusted_context() -> None:
         "audit_event",
     }
     assert forbidden.isdisjoint(ModelTurnRequest.model_fields)
+    for field in (
+        "routing_customer_environment_id",
+        "maximum_data_classification",
+        "purpose",
+    ):
+        assert ModelTurnRequest.model_fields[field].repr is False
     assert forbidden.isdisjoint(ModelToolInteraction.model_fields)
     assert set(ModelFinalAnswer.model_fields) == {
         "response_type",
