@@ -1,0 +1,63 @@
+{
+  "schema_version": "1.0.0",
+  "base": {
+    "image": "python:3.12.13-alpine3.23",
+    "digest": "sha256:601d3d3797e90e2534782e69c85fafb7971b43f24c7b1b079b7e48dd435e458d",
+    "alpine_release": "v3.23",
+    "architecture": "x86_64"
+  },
+  "packages": [
+    {
+      "package": "libcrypto3",
+      "version": "3.5.8-r0",
+      "architecture": "x86_64",
+      "alpine_release": "v3.23",
+      "repository": "main",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.23/main/x86_64/libcrypto3-3.5.8-r0.apk",
+      "sha256": "a5592b5cf276bc7a30ac7b161d46446085490b640faa1f839ea98eb15aacad31",
+      "origin": "openssl",
+      "aports_commit": "2b4b2590f782b95276d31dcaaf41554b1a597a0b",
+      "license": "Apache-2.0",
+      "purpose": "TLS and libpq cryptographic runtime"
+    },
+    {
+      "package": "libssl3",
+      "version": "3.5.8-r0",
+      "architecture": "x86_64",
+      "alpine_release": "v3.23",
+      "repository": "main",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.23/main/x86_64/libssl3-3.5.8-r0.apk",
+      "sha256": "f80b76cb5e5a52cfc1ced08f8dc3022adc0ce0a3d6e7741976731b22c71fe310",
+      "origin": "openssl",
+      "aports_commit": "2b4b2590f782b95276d31dcaaf41554b1a597a0b",
+      "license": "Apache-2.0",
+      "purpose": "TLS and libpq SSL runtime"
+    },
+    {
+      "package": "sqlite-libs",
+      "version": "3.53.4-r0",
+      "architecture": "x86_64",
+      "alpine_release": "v3.23",
+      "repository": "main",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.23/main/x86_64/sqlite-libs-3.53.4-r0.apk",
+      "sha256": "414be12c879052f4614a42a10fc12af67a88ba49e8e1e33f78cd9ddbbdb13fee",
+      "origin": "sqlite",
+      "aports_commit": "b45fc81206707171f23602615ce5619166014323",
+      "license": "blessing",
+      "purpose": "patched Python standard-library SQLite runtime dependency"
+    },
+    {
+      "package": "libpq",
+      "version": "18.6-r0",
+      "architecture": "x86_64",
+      "alpine_release": "v3.23",
+      "repository": "main",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.23/main/x86_64/libpq-18.6-r0.apk",
+      "sha256": "770d92f5134d2ee59182eeb3f3b95356c37886fa5ff796c50d8ba515a6b3c6d3",
+      "origin": "postgresql18",
+      "aports_commit": "c2ee21f8f682d22ae282d0b82b2427a2df335548",
+      "license": "PostgreSQL",
+      "purpose": "pure psycopg PostgreSQL client runtime"
+    }
+  ]
+}

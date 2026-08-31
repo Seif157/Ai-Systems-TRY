@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: erp-ai-runtime-config
+  namespace: erp-ai
+immutable: true
+data:
+  runtime.json: |
+    {"contract_version":"1.0.0","deployment_version":"replace-at-deploy","server":{"bind_address":"0.0.0.0","port":8080,"workers":1,"concurrency_limit":128,"backlog":256,"keep_alive_seconds":5,"startup_timeout_seconds":120,"graceful_shutdown_seconds":60},"runtime_catalog_reference":"catalog/runtime.json","erp_trust_config_reference":"config/erp-trust.json","laravel_config_reference":"config/laravel.json","audit_control_dsn_reference":"postgres/audit-control.dsn","customer_routes":[{"customer_environment_id":"replace-static-route","audit_runtime_dsn_reference":"postgres/customer-audit.dsn","knowledge_runtime_dsn_reference":"postgres/customer-knowledge.dsn","openai_credential_reference":"openai/api-key","openai_project_route_id":"replace-static-project-route"}]}

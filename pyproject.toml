@@ -5,14 +5,23 @@ description = "Entitlement-aware AI platform for modular ERP capabilities"
 readme = "README.md"
 requires-python = ">=3.12,<3.15"
 dependencies = [
-    "cryptography>=45.0.0,<47",
-    "fastapi>=0.116.1,<0.117",
+    "cryptography>=50.0.0,<51",
+    "fastapi>=0.135.0,<1",
     "httpx>=0.28.1,<0.29",
     "markdown-it-py>=4.2.0,<5.0.0",
     "pydantic>=2.12.5,<3",
     "psycopg[pool]>=3.3.4,<3.4",
+    "starlette>=1.3.1,<2",
     "tzdata>=2025.3",
+    "uvicorn>=0.35.0,<0.36",
 ]
+
+[project.scripts]
+erp-ai-serve = "erp_ai.deployment.bootstrap:serve"
+erp-ai-migrate-control-audit = "erp_ai.deployment.bootstrap:migrate_control_audit"
+erp-ai-migrate-customer-audit = "erp_ai.deployment.bootstrap:migrate_customer_audit"
+erp-ai-migrate-customer-knowledge = "erp_ai.deployment.bootstrap:migrate_customer_knowledge"
+erp-ai-production-preflight = "erp_ai.deployment.bootstrap:production_preflight"
 
 [dependency-groups]
 dev = [
@@ -53,6 +62,7 @@ packages = ["src/erp_ai"]
 "docs/contracts/openai-production-provider.md" = "share/doc/erp-ai-platform/openai-production-provider.md"
 "docs/contracts/model-data-privacy.md" = "share/doc/erp-ai-platform/model-data-privacy.md"
 "docs/deployment/openai-production-provider.md" = "share/doc/erp-ai-platform/deployment/openai-production-provider.md"
+"docs/deployment/production-operations.md" = "share/doc/erp-ai-platform/deployment/production-operations.md"
 
 [tool.hatch.build.targets.sdist]
 exclude = [

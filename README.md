@@ -1,5 +1,11 @@
 # ERP AI Platform
 
+> Step 30 deployment/operations work adds a strict fixed-file configuration and secret-volume
+> boundary, concrete configuration-to-runtime composition, hardened single-worker OCI/Kubernetes
+> references, separate administrative commands and migration Jobs, and operational runbooks. The
+> remediated Alpine application image has zero HIGH/CRITICAL findings under the pinned scanner;
+> installed-image rehearsal and platform admission remain release gates until completed.
+
 > Step 29 status: a direct, fixed-origin OpenAI Responses and Embeddings provider is under
 > implementation on its feature branch. It requires static per-customer project routing,
 > deployment-attested Zero Data Retention, restricted-data minimization, exact model identities,

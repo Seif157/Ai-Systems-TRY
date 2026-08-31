@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: Job
+metadata: {name: replace-one-erp-ai-migration, namespace: erp-ai}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 900
+  template:
+    spec:
+      serviceAccountName: erp-ai-migration
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      containers:
+        - name: migrate-one
+          image: registry.invalid/erp-ai@sha256:0000000000000000000000000000000000000000000000000000000000000000
+          command: ["replace-exact-administrative-entrypoint"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          resources:
+            requests: {cpu: 100m, memory: 128Mi, ephemeral-storage: 32Mi}
+            limits: {cpu: "1", memory: 512Mi, ephemeral-storage: 128Mi}
+          volumeMounts:
+            - {name: migration-config, mountPath: /etc/erp-ai, readOnly: true}
+            - {name: migration-secret, mountPath: /run/secrets/erp-ai-admin, readOnly: true}
+            - {name: tmp, mountPath: /tmp}
+      volumes:
+        - name: migration-config
+          configMap: {name: replace-one-migration-config}
+        - name: migration-secret
+          secret: {secretName: replace-one-migration-secret}
+        - name: tmp
+          emptyDir: {medium: Memory, sizeLimit: 32Mi}
