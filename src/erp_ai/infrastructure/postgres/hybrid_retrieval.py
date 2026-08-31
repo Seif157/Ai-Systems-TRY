@@ -3,8 +3,10 @@
 import asyncio
 import hashlib
 import json
+import math
+from decimal import Decimal
 from fractions import Fraction
-from typing import Literal
+from typing import Any, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
@@ -20,7 +22,7 @@ from erp_ai.infrastructure.postgres.semantic_retrieval import (
     PostgresSemanticKnowledgeRetrievalProvider,
     _vector_literal,
 )
-from erp_ai.knowledge import KnowledgeMatch, KnowledgeRetrievalRequest
+from erp_ai.knowledge import KnowledgeMatch, KnowledgeRetrievalRequest, KnowledgeSourceType
 from erp_ai.knowledge.embeddings import (
     EmbeddingBatchRequest,
     EmbeddingInput,
@@ -64,6 +66,69 @@ def _same_chunk(left: KnowledgeMatch, right: KnowledgeMatch) -> bool:
     return left.model_dump(exclude={"relevance_score"}) == right.model_dump(
         exclude={"relevance_score"}
     )
+
+
+def _decode_lexical_row(row: tuple[Any, ...]) -> KnowledgeMatch:
+    """Decode the exact 19-column projection produced by the lexical query."""
+
+    try:
+        (
+            chunk_id,
+            document_id,
+            citation_id,
+            namespace,
+            source_type,
+            customer_environment_id,
+            required_modules_all,
+            required_permissions_all,
+            allowed_purposes,
+            legal_entity_ids,
+            data_classification,
+            language,
+            title,
+            section,
+            document_version,
+            effective_from,
+            effective_to,
+            content,
+            raw_score,
+        ) = row
+    except ValueError:
+        raise KnowledgeStorageUnavailable("hybrid knowledge retrieval is unavailable") from None
+    if isinstance(raw_score, bool) or not isinstance(raw_score, (int, float, Decimal)):
+        raise KnowledgeStorageUnavailable("hybrid knowledge retrieval is unavailable")
+    score = float(raw_score)
+    if not math.isfinite(score) or not 0 <= score <= 1:
+        raise KnowledgeStorageUnavailable("hybrid knowledge retrieval is unavailable")
+    return KnowledgeMatch(
+        chunk_id=str(chunk_id),
+        document_id=str(document_id),
+        citation_id=str(citation_id),
+        namespace=cast(str, namespace),
+        source_type=KnowledgeSourceType(source_type),
+        customer_environment_id=cast(str | None, customer_environment_id),
+        required_modules_all=tuple(cast(list[str], required_modules_all)),
+        required_permissions_all=tuple(cast(list[str], required_permissions_all)),
+        allowed_purposes=tuple(cast(list[str], allowed_purposes)),
+        legal_entity_ids=tuple(cast(list[str], legal_entity_ids)),
+        data_classification=cast(Any, data_classification),
+        language=cast(str, language),
+        title=cast(str, title),
+        section=cast(str, section),
+        document_version=cast(str, document_version),
+        effective_from=cast(Any, effective_from),
+        effective_to=cast(Any, effective_to),
+        content=cast(str, content),
+        relevance_score=score,
+    )
+
+
+def _decode_semantic_row(row: tuple[Any, ...]) -> KnowledgeMatch:
+    """Decode only the exact 20-column semantic projection."""
+
+    if len(row) != 20:
+        raise KnowledgeStorageUnavailable("hybrid knowledge retrieval is unavailable")
+    return PostgresSemanticKnowledgeRetrievalProvider._match(row)
 
 
 def reciprocal_rank_fusion(
@@ -231,12 +296,8 @@ class PostgresHybridKnowledgeRetrievalProvider:  # pragma: no cover - integratio
                         ),
                     )
                 ).fetchall()
-                lexical = tuple(
-                    PostgresSemanticKnowledgeRetrievalProvider._match(row) for row in lexical_rows
-                )
-                semantic = tuple(
-                    PostgresSemanticKnowledgeRetrievalProvider._match(row) for row in semantic_rows
-                )
+                lexical = tuple(_decode_lexical_row(row) for row in lexical_rows)
+                semantic = tuple(_decode_semantic_row(row) for row in semantic_rows)
                 result = reciprocal_rank_fusion(
                     lexical, semantic, self._policy, request.maximum_results
                 )
